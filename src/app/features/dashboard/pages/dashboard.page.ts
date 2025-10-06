@@ -45,7 +45,6 @@ export class DashboardPage implements OnInit, OnDestroy {
   // Component state
   stats: StatCard[] = [];
   alertas: AlertaDashboard[] = [];
-  accionesRapidas: AccionRapida[] = [];
   isLoading = false;
   error: string | null = null;
   
@@ -58,7 +57,6 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadDashboardData();
-    this.loadQuickActions();
   }
 
   ngOnDestroy() {
@@ -136,13 +134,6 @@ export class DashboardPage implements OnInit, OnDestroy {
         color: 'danger'
       }
     ];
-  }
-
-  /**
-   * Load quick actions for dashboard
-   */
-  private loadQuickActions() {
-    this.accionesRapidas = this.dashboardService.getQuickActions();
   }
 
   /**
@@ -250,13 +241,6 @@ export class DashboardPage implements OnInit, OnDestroy {
    */
   clearError() {
     this.error = null;
-  }
-
-  /**
-   * Execute quick action
-   */
-  executeQuickAction(accion: AccionRapida) {
-    this.router.navigateByUrl(accion.ruta);
   }
 
   /**

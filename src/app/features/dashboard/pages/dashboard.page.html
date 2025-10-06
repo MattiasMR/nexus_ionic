@@ -40,21 +40,6 @@
       </ion-row>
     </ion-grid>
 
-    <!-- Acciones rápidas -->
-    <div class="panel" *ngIf="accionesRapidas.length > 0 && !isLoading">
-      <h3 class="panel-title">Acciones Rápidas</h3>
-      <div class="quick-actions-grid">
-        <button 
-          *ngFor="let accion of accionesRapidas" 
-          class="alert-btn quick-action-btn"
-          (click)="executeQuickAction(accion)"
-        >
-          <ion-icon [name]="accion.icono"></ion-icon>
-          <span>{{ accion.titulo }}</span>
-        </button>
-      </div>
-    </div>
-
     <!-- Sección de alertas -->
     <div class="alertas-seccion" *ngIf="!isLoading">
       <header class="franja-titulo">
@@ -62,9 +47,6 @@
           <ion-icon name="notifications-circle-outline"></ion-icon>
           <span>Alertas del Sistema</span>
         </h2>
-        <button class="refresh-btn" (click)="refreshDashboard()">
-          <ion-icon name="refresh-outline"></ion-icon>
-        </button>
       </header>
       
       <!-- Sin alertas -->
