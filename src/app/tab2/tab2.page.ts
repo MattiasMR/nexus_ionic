@@ -6,51 +6,33 @@ import {
   // Inputs
   IonSearchbar, IonInput, IonTextarea, IonSelect, IonSelectOption,
   // UI
-  IonIcon, IonBadge, IonButton, IonAvatar, IonLabel,
-  IonModal, IonHeader, IonToolbar, IonTitle, IonButtons,
-  IonSpinner, IonToast
+  IonIcon, IonBadge,
+  IonModal
 } from '@ionic/angular/standalone';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgClass, NgIf } from '@angular/common';
-import { PatientService } from '../OLDservices/patient.service';
-import { Patient, CreatePatientRequest } from '../models/patient.model';
+import { CommonModule } from '@angular/common';
+import { PacientesService } from '../features/pacientes/data/pacientes.service';
+import { Paciente } from '../models/paciente.model';
 import { Subscription } from 'rxjs';
-export interface PatientListResponse {
-  patients: Patient[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
+import { Timestamp } from '@angular/fire/firestore';
 
-type Estado = 'activo' | 'inactivo';
-
-export type Paciente = {
-  id?: string;
-  nombres: string;
-  apellidos: string;
-  documento: string;
-  tipoDocumento: string;
-  // Campos obligatorios para el backend
-  telefono: string;
-  email: string;
-  direccion: string;
-  fechaNacimiento: Date | string;
-  genero: string;
-  estadoCivil: string;
-  ocupacion: string;
-  // Campos opcionales para compatibilidad
-  rut?: string;
+/**
+ * UI-friendly patient display interface with calculated fields
+ */
+interface PacienteUI extends Paciente {
   edad?: number;
-  ubicacion?: string;
-  estado: Estado;
-  diagnostico?: string;
+  iniciales?: string;
+  nombreCompleto?: string;
+  // For compatibility with existing template
+  nombres?: string;
+  apellidos?: string;
+  documento?: string;
+  estado?: 'activo' | 'inactivo';
   ultimaVisita?: string;
-};
+  ubicacion?: string;
+  diagnostico?: string;
+}
 
 @Component({
   selector: 'app-tab2',
@@ -59,23 +41,25 @@ export type Paciente = {
     // Ionic usados en el HTML
     IonContent, IonList, IonItem,
     IonSearchbar, IonInput, IonTextarea, IonSelect, IonSelectOption,
-    IonIcon, IonBadge, IonButton, IonAvatar, IonLabel,
-    IonModal, IonHeader, IonToolbar, IonTitle, IonButtons,
-    IonSpinner, IonToast,
+    IonIcon, IonBadge,
+    IonModal,
     // Angular
-    FormsModule, NgFor, NgClass, NgIf
+    FormsModule, NgFor, NgClass, NgIf, CommonModule
   ],
   templateUrl: './tab2.page.html',
   styleUrls: ['./tab2.page.scss'],
 })
 export class Tab2Page implements OnInit, OnDestroy {
   // Estados del componente
-  pacientes: Paciente[] = [];
+  pacientes: PacienteUI[] = [];
+  filteredPacientes: PacienteUI[] = [];
   isLoading = false;
   error: string | null = null;
   
-  // Búsqueda y paginación
+  // Búsqueda
   query = '';
+  
+  // For pagination display (not used by Firestore but kept for template compatibility)
   currentPage = 1;
   totalPages = 1;
   totalPatients = 0;
@@ -84,12 +68,11 @@ export class Tab2Page implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private patientService: PatientService
+    private pacientesService: PacientesService
   ) {}
 
   ngOnInit() {
     this.loadPatients();
-    this.setupSubscriptions();
   }
 
   ngOnDestroy() {
@@ -97,90 +80,82 @@ export class Tab2Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Configurar suscripciones reactivas
+   * Cargar todos los pacientes desde Firestore
    */
-  private setupSubscriptions() {
-    this.subscriptions.push(
-      this.patientService.loading$.subscribe(loading => {
-        this.isLoading = loading;
-      }),
-      
-      this.patientService.error$.subscribe(error => {
-        this.error = error;
-      })
-    );
-  }
+  loadPatients() {
+    this.isLoading = true;
+    this.error = null;
 
-  /**
-   * Cargar pacientes desde el backend
-   */
-  loadPatients(page: number = 1, search?: string) {
-    this.currentPage = page;
-    
     this.subscriptions.push(
-      this.patientService.getPatients(page, 20, search).subscribe({
-        next: (response) => {
-          // Transformar datos del backend al formato esperado por la UI
-          this.pacientes = response.patients.map(this.transformPatient);
-          this.totalPages = response.pagination.totalPages;
-          this.totalPatients = response.pagination.total;
-          this.error = null;
+      this.pacientesService.getAllPacientes().subscribe({
+        next: (pacientes) => {
+          this.pacientes = pacientes.map(this.enrichPatient);
+          this.filteredPacientes = [...this.pacientes];
+          this.totalPatients = this.pacientes.length;
+          this.isLoading = false;
+          console.log('Patients loaded:', pacientes.length);
         },
         error: (error) => {
           console.error('Error loading patients:', error);
           this.error = 'Error al cargar los pacientes';
+          this.isLoading = false;
         }
       })
     );
   }
 
   /**
-   * Transformar Patient del backend al formato Paciente de la UI
+   * Enrich patient data with calculated fields and template compatibility
    */
-  private transformPatient = (patient: Patient): Paciente => {
+  private enrichPatient = (paciente: Paciente): PacienteUI => {
+    const nombreCompleto = `${paciente.nombre} ${paciente.apellido}`;
+    
     return {
-      id: patient.id,
-      nombres: patient.nombres,
-      apellidos: patient.apellidos,
-      documento: patient.documento,
-      tipoDocumento: patient.tipoDocumento,
-      telefono: patient.telefono,
-      email: patient.email,
-      direccion: patient.direccion,
-      fechaNacimiento: patient.fechaNacimiento,
-      genero: patient.genero,
-      estadoCivil: patient.estadoCivil,
-      ocupacion: patient.ocupacion,
-      // Campos calculados/opcionales
-      rut: patient.documento, // Para compatibilidad con template
-      edad: this.calculateAge(patient.fechaNacimiento),
-      ubicacion: 'Sin asignar', // Campo no disponible en backend
-      estado: patient.estado,
-      diagnostico: patient.antecedentes?.[0] || 'Sin diagnóstico',
-      ultimaVisita: this.formatDate(patient.fechaActualizacion)
+      ...paciente,
+      // Calculated fields
+      edad: this.calculateAge(paciente.fechaNacimiento),
+      iniciales: this.initials(nombreCompleto),
+      nombreCompleto,
+      // Template compatibility (map singular to plural)
+      nombres: paciente.nombre,
+      apellidos: paciente.apellido,
+      documento: paciente.rut,
+      estado: 'activo', // Default, can be extended later
+      ultimaVisita: this.formatDate(paciente.updatedAt)
     };
   };
 
   /**
    * Calcular edad a partir de fecha de nacimiento
    */
-  private calculateAge(fechaNacimiento?: Date): number {
+  private calculateAge(fechaNacimiento?: Date | Timestamp): number {
     if (!fechaNacimiento) return 0;
-    const birth = new Date(fechaNacimiento);
+    
+    const birth = fechaNacimiento instanceof Timestamp 
+      ? fechaNacimiento.toDate() 
+      : new Date(fechaNacimiento);
+    
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
+    
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
       age--;
     }
+    
     return age;
   }
 
   /**
    * Formatear fecha para visualización
    */
-  private formatDate(date: Date | string): string {
-    const d = new Date(date);
+  private formatDate(date: Date | Timestamp | string | undefined): string {
+    if (!date) return 'N/A';
+    
+    const d = date instanceof Timestamp 
+      ? date.toDate() 
+      : new Date(date);
+    
     return d.toLocaleDateString('es-CL');
   }
 
@@ -189,7 +164,7 @@ export class Tab2Page implements OnInit, OnDestroy {
     this.router.navigateByUrl('/tabs/tab1'); 
   }
   
-  verFicha(paciente: Paciente) { 
+  verFicha(paciente: PacienteUI) { 
     this.router.navigate(['/tabs/tab3'], { 
       queryParams: { patientId: paciente.id } 
     }); 
@@ -198,27 +173,55 @@ export class Tab2Page implements OnInit, OnDestroy {
   // ---------- Búsqueda ----------
   onSearch(ev: any) { 
     this.query = (ev?.detail?.value || '').toLowerCase().trim();
-    this.loadPatients(1, this.query || undefined);
+    
+    if (!this.query) {
+      // Show all patients if search is empty
+      this.filteredPacientes = [...this.pacientes];
+      return;
+    }
+
+    // Use service search for Firestore query
+    this.isLoading = true;
+    
+    this.subscriptions.push(
+      this.pacientesService.searchPacientes(this.query).subscribe({
+        next: (results) => {
+          this.filteredPacientes = results.map(this.enrichPatient);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Search error:', error);
+          // Fallback to client-side filtering
+          this.filteredPacientes = this.pacientes.filter(p =>
+            p.nombre?.toLowerCase().includes(this.query) ||
+            p.apellido?.toLowerCase().includes(this.query) ||
+            p.rut?.toLowerCase().includes(this.query) ||
+            p.nombreCompleto?.toLowerCase().includes(this.query)
+          );
+          this.isLoading = false;
+        }
+      })
+    );
   }
 
-  get filtered(): Paciente[] {
-    // La filtración ahora se hace en el backend
-    return this.pacientes;
+  get filtered(): PacienteUI[] {
+    return this.filteredPacientes;
   }
 
   get total(): number { 
-    return this.totalPatients; 
+    return this.filteredPacientes.length; 
   }
 
   // ---------- Utilidades UI ----------
-  initials(nombre: string): string {
+  initials(nombre?: string): string {
+    if (!nombre) return '--';
     const parts = nombre.trim().split(/\s+/);
     const first = parts[0]?.[0] ?? '';
     const last  = parts[parts.length - 1]?.[0] ?? '';
     return (first + last).toUpperCase();
   }
 
-  estadoClass(estado: Estado) {
+  estadoClass(estado: 'activo' | 'inactivo' | undefined) {
     return {
       'badge-estable': estado === 'activo',
       'badge-activo' : estado === 'activo',
@@ -228,12 +231,12 @@ export class Tab2Page implements OnInit, OnDestroy {
 
   // ============== CREAR PACIENTE (Modal) ==============
   isCreateOpen = false;
-  newPaciente: Paciente = this.blankPaciente();
+  newPaciente: any = {}; // Use any for form flexibility
 
   openCreate() {
     console.log('openCreate() llamado');
     this.newPaciente = this.blankPaciente();
-    this.error = null; // Limpiar errores previos
+    this.error = null;
     this.isCreateOpen = true;
     console.log('Modal abierto, newPaciente inicializado:', this.newPaciente);
   }
@@ -250,39 +253,28 @@ export class Tab2Page implements OnInit, OnDestroy {
     alert('¡El botón responde correctamente!');
   }
 
-  saveCreate() {
+  async saveCreate() {
     console.log('saveCreate() llamado');
     console.log('Datos del formulario:', this.newPaciente);
     
     const p = this.newPaciente;
     
-    // Validaciones completas
-    if (!p.nombres?.trim()) {
-      this.error = 'El campo nombres es obligatorio';
+    // Map template fields (plural) to model fields (singular)
+    const nombre = p.nombres || p.nombre;
+    const apellido = p.apellidos || p.apellido;
+    const rut = p.documento || p.rut;
+    
+    // Validaciones básicas
+    if (!nombre?.trim()) {
+      this.error = 'El campo nombre es obligatorio';
       return;
     }
-    if (!p.apellidos?.trim()) {
-      this.error = 'El campo apellidos es obligatorio';
+    if (!apellido?.trim()) {
+      this.error = 'El campo apellido es obligatorio';
       return;
     }
-    if (!p.documento?.trim()) {
-      this.error = 'El campo documento es obligatorio';
-      return;
-    }
-    if (!p.telefono?.trim()) {
-      this.error = 'El campo teléfono es obligatorio';
-      return;
-    }
-    if (!p.email?.trim()) {
-      this.error = 'El campo email es obligatorio';
-      return;
-    }
-    if (!p.direccion?.trim()) {
-      this.error = 'El campo dirección es obligatorio';
-      return;
-    }
-    if (!p.ocupacion?.trim()) {
-      this.error = 'El campo ocupación es obligatorio';
+    if (!rut?.trim()) {
+      this.error = 'El campo RUT/documento es obligatorio';
       return;
     }
     if (!p.fechaNacimiento) {
@@ -292,69 +284,51 @@ export class Tab2Page implements OnInit, OnDestroy {
 
     // Limpiar error previo
     this.error = null;
+    this.isLoading = true;
     
-    console.log('Validaciones pasadas, preparando request...');
+    console.log('Validaciones pasadas, creando paciente...');
 
-    // Preparar datos para el backend
-    const createRequest: CreatePatientRequest = {
-      nombres: p.nombres.trim(),
-      apellidos: p.apellidos.trim(),
-      documento: p.documento.trim(),
-      tipoDocumento: (p.tipoDocumento as 'CC' | 'TI' | 'CE' | 'PP' | 'RC') || 'CC',
-      telefono: p.telefono.trim(),
-      email: p.email.trim(),
-      direccion: p.direccion.trim(),
-      ocupacion: p.ocupacion.trim(),
-      fechaNacimiento: new Date(p.fechaNacimiento),
-      genero: (p.genero as 'M' | 'F' | 'Otro') || 'Otro',
-      estadoCivil: (p.estadoCivil as 'soltero' | 'casado' | 'divorciado' | 'viudo' | 'union_libre') || 'soltero',
-      contactoEmergencia: {
-        nombre: 'Contacto por definir',
-        telefono: p.telefono.trim(),
-        relacion: 'Por definir'
-      },
+    // Preparar datos para Firestore (usar nombres del modelo)
+    const nuevoPaciente: Omit<Paciente, 'id'> = {
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      rut: rut.trim(),
+      fechaNacimiento: typeof p.fechaNacimiento === 'string'
+        ? Timestamp.fromDate(new Date(p.fechaNacimiento))
+        : Timestamp.now(),
+      sexo: (p.sexo || p.genero || 'Otro') as 'M' | 'F' | 'Otro',
+      // Required fields
+      direccion: p.direccion?.trim() || 'Sin dirección',
+      telefono: p.telefono?.trim() || 'Sin teléfono',
+      // Optional fields
+      email: p.email,
+      grupoSanguineo: p.grupoSanguineo,
       alergias: [],
-      medicamentos: [],
-      antecedentes: p.diagnostico ? [p.diagnostico] : [],
-      grupoSanguineo: 'O+',
-      eps: 'Particular'
+      enfermedadesCronicas: [],
+      alertasMedicas: [],
+      nombreCompleto: `${nombre.trim()} ${apellido.trim()}`,
+      // Metadata
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
     };
 
-    console.log('Request preparado:', createRequest);
-    console.log('Enviando al backend...');
+    console.log('Paciente preparado:', nuevoPaciente);
 
-    this.subscriptions.push(
-      this.patientService.createPatient(createRequest).subscribe({
-        next: (newPatient) => {
-          console.log('Respuesta del backend exitosa:', newPatient);
-          if (newPatient) {
-            // Recargar la lista completa para asegurar que se muestre el nuevo paciente
-            this.loadPatients(1);
-            
-            // Cerrar modal y limpiar error
-            this.closeCreate();
-            this.error = null;
-            
-            console.log('Paciente creado exitosamente y modal cerrado');
-          } else {
-            console.log('newPatient es null');
-            this.error = 'Error: No se pudo crear el paciente';
-          }
-        },
-        error: (error) => {
-          console.error('Error al crear paciente:', error);
-          console.error('Error details:', error.error);
-          
-          // Mostrar detalles específicos del error
-          if (error.error?.details) {
-            const errorMessages = error.error.details.map((detail: any) => detail.msg || detail.message).join(', ');
-            this.error = `Errores de validación: ${errorMessages}`;
-          } else {
-            this.error = error?.error?.message || error?.message || 'Error al crear el paciente';
-          }
-        }
-      })
-    );
+    try {
+      const docId = await this.pacientesService.createPaciente(nuevoPaciente);
+      console.log('Paciente creado con ID:', docId);
+      
+      // Close modal and refresh list
+      this.closeCreate();
+      this.loadPatients();
+      this.error = null;
+      
+      console.log('Paciente creado exitosamente y lista actualizada');
+    } catch (error: any) {
+      console.error('Error al crear paciente:', error);
+      this.error = error?.message || 'Error al crear el paciente';
+      this.isLoading = false;
+    }
   }
 
   private today(): string {
@@ -364,8 +338,9 @@ export class Tab2Page implements OnInit, OnDestroy {
     return `${d.getFullYear()}-${mm}-${dd}`;
   }
 
-  private blankPaciente(): Paciente {
+  private blankPaciente(): any {
     return {
+      // Template uses plural forms
       nombres: '',
       apellidos: '',
       documento: '',
@@ -373,14 +348,15 @@ export class Tab2Page implements OnInit, OnDestroy {
       telefono: '',
       email: '',
       direccion: '',
-      fechaNacimiento: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+      fechaNacimiento: new Date().toISOString().split('T')[0], // YYYY-MM-DD
       genero: 'Otro',
       estadoCivil: 'soltero',
       ocupacion: '',
-      // Campos opcionales
+      // Model uses singular forms
+      nombre: '',
+      apellido: '',
       rut: '',
-      edad: 0,
-      ubicacion: '',
+      sexo: 'Otro',
       estado: 'activo',
       diagnostico: '',
       ultimaVisita: ''
@@ -389,9 +365,15 @@ export class Tab2Page implements OnInit, OnDestroy {
 
   // ============== EXPORTAR (CSV) ==============
   exportar() {
-    const header = ['Nombre','Apellidos','Documento','Teléfono','Email','Estado','Diagnóstico','Última visita'];
+    const header = ['Nombre','Apellido','RUT','Teléfono','Email','Edad','Última actualización'];
     const rows = this.filtered.map(p => [
-      p.nombres, p.apellidos, p.documento, p.telefono, p.email, p.estado, p.diagnostico, p.ultimaVisita
+      p.nombre, 
+      p.apellido, 
+      p.rut, 
+      p.telefono || '', 
+      p.email || '', 
+      p.edad || '',
+      this.formatDate(p.updatedAt)
     ]);
 
     const toCsv = (r: any[]) => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
@@ -408,22 +390,21 @@ export class Tab2Page implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
-  // ============== PAGINACIÓN ==============
+  // ============== PAGINACIÓN (Placeholders for template compatibility) ==============
   previousPage() {
-    if (this.currentPage > 1) {
-      this.loadPatients(this.currentPage - 1, this.query || undefined);
-    }
+    // Firestore doesn't use pagination like this
+    // Could be implemented with startAfter/endBefore cursors later
+    console.log('Pagination not implemented with Firestore yet');
   }
 
   nextPage() {
-    if (this.currentPage < this.totalPages) {
-      this.loadPatients(this.currentPage + 1, this.query || undefined);
-    }
+    // Firestore doesn't use pagination like this
+    console.log('Pagination not implemented with Firestore yet');
   }
 
   // ============== REFRESCAR ==============
   refreshPatients() {
-    this.loadPatients(this.currentPage, this.query || undefined);
+    this.loadPatients();
   }
 
   // ============== ELIMINAR ERROR ==============

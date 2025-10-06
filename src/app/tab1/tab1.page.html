@@ -3,15 +3,32 @@
 
     <!-- Título -->
     <div class="page-head">
-      <h1 class="title">Sistema Médico</h1>
+      <h1 class="title">Sistema Médico Nexus</h1>
       <p class="subtitle">Gestión integral de fichas médicas</p>
     </div>
 
+    <!-- Indicador de carga -->
+    <div *ngIf="isLoading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Cargando datos del dashboard...</p>
+    </div>
+
+    <!-- Mensaje de error -->
+    <ion-toast
+      *ngIf="error"
+      [isOpen]="!!error"
+      [message]="error"
+      [duration]="5000"
+      color="danger"
+      position="top"
+      (didDismiss)="clearError()"
+    ></ion-toast>
+
     <!-- Tarjetas de métricas -->
-    <ion-grid class="stats-grid">
+    <ion-grid class="stats-grid" *ngIf="!isLoading">
       <ion-row class="stats-row">
         <ion-col size="12" sizeMd="6" sizeLg="3" *ngFor="let s of stats">
-          <ion-card class="stat-card">
+          <ion-card class="stat-card" [ngClass]="'stat-card-' + (s.color || 'primary')">
             <ion-card-header>
               <div class="card-head">
                 <ion-card-subtitle>{{ s.title }}</ion-card-subtitle>
@@ -25,106 +42,145 @@
       </ion-row>
     </ion-grid>
 
-    <!-- Botón directo a pacientes -->
-    <div class="panel">
-      <button class="alert-btn" (click)="goToPatients()">
-        <ion-icon name="people-outline"></ion-icon>
-        <span>Ver Pacientes</span>
-      </button>
+    <!-- Acciones rápidas -->
+    <div class="panel" *ngIf="accionesRapidas.length > 0 && !isLoading">
+      <h3 class="panel-title">Acciones Rápidas</h3>
+      <div class="quick-actions-grid">
+        <button 
+          *ngFor="let accion of accionesRapidas" 
+          class="alert-btn quick-action-btn"
+          (click)="executeQuickAction(accion)"
+        >
+          <ion-icon [name]="accion.icono"></ion-icon>
+          <span>{{ accion.titulo }}</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Sección de alertas de exámenes -->
-    <div class="alertas-seccion">
+    <!-- Sección de alertas -->
+    <div class="alertas-seccion" *ngIf="!isLoading">
       <header class="franja-titulo">
         <h2 class="alertas-titulo">
           <ion-icon name="notifications-circle-outline"></ion-icon>
-          <span>Alertas de Exámenes</span>
+          <span>Alertas del Sistema</span>
         </h2>
+        <button class="refresh-btn" (click)="refreshDashboard()">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </button>
       </header>
       
-      <!-- Grid de dos columnas -->
-      <ion-grid>
+      <!-- Sin alertas -->
+      <div *ngIf="alertas.length === 0" class="empty-state">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <p>No hay alertas en este momento</p>
+      </div>
+
+      <!-- Grid de dos columnas con alertas reales -->
+      <ion-grid *ngIf="alertas.length > 0">
         <ion-row>
-          <!-- Columna de Exámenes Pendientes -->
-          <ion-col size="12" size-md="6">
-            <div class="columna-alertas">
-              <h3 class="columna-titulo">
-                <ion-icon name="time-outline"></ion-icon>
-                <span>Exámenes Pendientes</span>
-              </h3>
-              
-              <ion-card class="alerta-card alerta-pendiente">
-                <ion-card-content>
-                  <div class="alerta-header">
-                    <ion-avatar>
-                      <img alt="Silhouette of a person's head" src="https://ionicframework.com/docs/img/demos/avatar.svg" />
-                    </ion-avatar>
-                    <h3>Juan Pérez</h3>
-                  </div>
-                  <div class="alerta-contenido">
-                    <ion-icon name="time-outline"></ion-icon>
-                    <span>Hemograma pendiente</span>
-                  </div>
-                  <div class="alerta-footer">
-                    <button class="ver-mas-btn" (click)="verExamenesPaciente('juan-perez')">
-                      <span>Ver más</span>
-                      <ion-icon name="chevron-forward-outline"></ion-icon>
-                    </button>
-                  </div>
-                </ion-card-content>
-              </ion-card>
-
-              <ion-card class="alerta-card alerta-pendiente">
-                <ion-card-content>
-                  <div class="alerta-header">
-                    <ion-avatar>
-                      <img alt="Silhouette of a person's head" src="https://ionicframework.com/docs/img/demos/avatar.svg" />
-                    </ion-avatar>
-                    <h3>Pedro González</h3>
-                  </div>
-                  <div class="alerta-contenido">
-                    <ion-icon name="time-outline"></ion-icon>
-                    <span>TSH pendiente</span>
-                  </div>
-                  <div class="alerta-footer">
-                    <button class="ver-mas-btn" (click)="verExamenesPaciente('pedro-gonzalez')">
-                      <span>Ver más</span>
-                      <ion-icon name="chevron-forward-outline"></ion-icon>
-                    </button>
-                  </div>
-                </ion-card-content>
-              </ion-card>
-            </div>
-          </ion-col>
-
-          <!-- Columna de Exámenes Alterados -->
+          <!-- Columna de Alertas Críticas/Altas -->
           <ion-col size="12" size-md="6">
             <div class="columna-alertas">
               <h3 class="columna-titulo">
                 <ion-icon name="warning-outline"></ion-icon>
-                <span>Exámenes Alterados</span>
+                <span>Alertas Prioritarias ({{ getAlertasCriticas().length }})</span>
               </h3>
-
-              <ion-card class="alerta-card alerta-urgente">
+              
+              <ion-card 
+                *ngFor="let alerta of getAlertasCriticas()" 
+                class="alerta-card"
+                [ngClass]="'alerta-' + alerta.severidad"
+                (click)="onAlertClick(alerta)"
+              >
                 <ion-card-content>
                   <div class="alerta-header">
                     <ion-avatar>
-                      <img alt="Silhouette of a person's head" src="https://ionicframework.com/docs/img/demos/avatar.svg" />
+                      <img 
+                        alt="Avatar del paciente" 
+                        src="https://ionicframework.com/docs/img/demos/avatar.svg" 
+                      />
                     </ion-avatar>
-                    <h3>María López</h3>
+                    <div class="alerta-info">
+                      <h3>{{ alerta.pacienteNombre || alerta.titulo || 'Sin nombre' }}</h3>
+                      <span class="alerta-tipo">{{ alerta.tipo | uppercase }}</span>
+                    </div>
+                    <ion-icon 
+                      [name]="getAlertIcon(alerta.tipo)"
+                      [color]="getAlertColor(alerta.severidad)"
+                      class="alert-type-icon"
+                    ></ion-icon>
                   </div>
                   <div class="alerta-contenido">
-                    <ion-icon name="warning-outline"></ion-icon>
-                    <span>Colesterol elevado</span>
+                    <p>{{ alerta.descripcion }}</p>
                   </div>
                   <div class="alerta-footer">
-                    <button class="ver-mas-btn" (click)="verExamenesPaciente('maria-lopez')">
-                      <span>Ver más</span>
+                    <span class="alerta-fecha">{{ formatAlertaFecha(alerta.fecha) | date:'short' }}</span>
+                    <button class="ver-mas-btn">
+                      <span>Ver detalles</span>
                       <ion-icon name="chevron-forward-outline"></ion-icon>
                     </button>
                   </div>
                 </ion-card-content>
               </ion-card>
+
+              <!-- Empty state para columna críticas -->
+              <div *ngIf="getAlertasCriticas().length === 0" class="empty-column">
+                <ion-icon name="checkmark-circle-outline"></ion-icon>
+                <p>Sin alertas prioritarias</p>
+              </div>
+            </div>
+          </ion-col>
+
+          <!-- Columna de Alertas de Exámenes -->
+          <ion-col size="12" size-md="6">
+            <div class="columna-alertas">
+              <h3 class="columna-titulo">
+                <ion-icon name="flask-outline"></ion-icon>
+                <span>Alertas de Exámenes ({{ getAlertasExamenes().length }})</span>
+              </h3>
+
+              <ion-card 
+                *ngFor="let alerta of getAlertasExamenes()" 
+                class="alerta-card"
+                [ngClass]="'alerta-' + alerta.severidad"
+                (click)="onAlertClick(alerta)"
+              >
+                <ion-card-content>
+                  <div class="alerta-header">
+                    <ion-avatar>
+                      <img 
+                        alt="Avatar del paciente" 
+                        src="https://ionicframework.com/docs/img/demos/avatar.svg" 
+                      />
+                    </ion-avatar>
+                    <div class="alerta-info">
+                      <h3>{{ alerta.pacienteNombre || alerta.titulo || 'Sin nombre' }}</h3>
+                      <span class="alerta-tipo">EXAMEN</span>
+                    </div>
+                    <ion-icon 
+                      name="flask-outline"
+                      [color]="getAlertColor(alerta.severidad)"
+                      class="alert-type-icon"
+                    ></ion-icon>
+                  </div>
+                  <div class="alerta-contenido">
+                    <p>{{ alerta.descripcion }}</p>
+                  </div>
+                  <div class="alerta-footer">
+                    <span class="alerta-fecha">{{ formatAlertaFecha(alerta.fecha) | date:'short' }}</span>
+                    <button class="ver-mas-btn">
+                      <span>Ver examen</span>
+                      <ion-icon name="chevron-forward-outline"></ion-icon>
+                    </button>
+                  </div>
+                </ion-card-content>
+              </ion-card>
+
+              <!-- Empty state para columna exámenes -->
+              <div *ngIf="getAlertasExamenes().length === 0" class="empty-column">
+                <ion-icon name="flask-outline"></ion-icon>
+                <p>Sin alertas de exámenes</p>
+              </div>
             </div>
           </ion-col>
         </ion-row>

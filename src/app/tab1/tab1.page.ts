@@ -5,10 +5,26 @@ import {
   IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
   IonIcon, IonAvatar, IonButton, IonSpinner, IonToast
 } from '@ionic/angular/standalone';
-import { NgFor, NgClass, NgIf } from '@angular/common';
-import { DashboardService, DashboardStatsCard, Alert } from '../OLDservices/dashboard.service';
-import { ExamService } from '../OLDservices/exam.service';
+import { NgFor, NgClass, NgIf, DatePipe, UpperCasePipe } from '@angular/common';
+import { Timestamp } from '@angular/fire/firestore';
+import { 
+  DashboardService, 
+  DashboardStats, 
+  AlertaDashboard, 
+  AccionRapida 
+} from '../features/dashboard/data/dashboard.service';
 import { Subscription } from 'rxjs';
+
+/**
+ * Interface for stat cards displayed on dashboard
+ */
+interface StatCard {
+  title: string;
+  value: number | string;
+  sub: string;
+  icon: string;
+  color?: string;
+}
 
 @Component({
   selector: 'app-tab1',
@@ -16,16 +32,17 @@ import { Subscription } from 'rxjs';
   imports: [
     IonContent, IonGrid, IonRow, IonCol,
     IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
-    IonIcon, IonAvatar, IonButton, IonSpinner, IonToast,
-    NgFor, NgClass, NgIf
+    IonIcon, IonAvatar, IonSpinner, IonToast,
+    NgFor, NgClass, NgIf, DatePipe, UpperCasePipe
   ],
   templateUrl: './tab1.page.html',
   styleUrls: ['./tab1.page.scss']
 })
 export class Tab1Page implements OnInit, OnDestroy {
-  // Estados del componente
-  stats: DashboardStatsCard[] = [];
-  alertas: Alert[] = [];
+  // Component state
+  stats: StatCard[] = [];
+  alertas: AlertaDashboard[] = [];
+  accionesRapidas: AccionRapida[] = [];
   isLoading = false;
   error: string | null = null;
   
@@ -33,13 +50,12 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private dashboardService: DashboardService,
-    private examService: ExamService
+    private dashboardService: DashboardService
   ) {}
 
   ngOnInit() {
     this.loadDashboardData();
-    this.setupSubscriptions();
+    this.loadQuickActions();
   }
 
   ngOnDestroy() {
@@ -47,42 +63,19 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Configurar suscripciones reactivas
+   * Load dashboard data from Firestore
    */
-  private setupSubscriptions() {
-    // Suscribirse a los estados del servicio
-    this.subscriptions.push(
-      this.dashboardService.loading$.subscribe(loading => {
-        this.isLoading = loading;
-      }),
-      
-      this.dashboardService.error$.subscribe(error => {
-        this.error = error;
-      }),
-      
-      this.dashboardService.stats$.subscribe(stats => {
-        this.stats = stats;
-      }),
-      
-      this.dashboardService.alerts$.subscribe(alerts => {
-        this.alertas = alerts;
-      })
-    );
-  }
-
-  /**
-   * Cargar datos del dashboard desde el backend
-   */
-  loadDashboardData() {
+  private loadDashboardData() {
     this.isLoading = true;
     this.error = null;
 
-    // Cargar estadísticas del dashboard
+    // Load dashboard statistics (KPIs)
     this.subscriptions.push(
       this.dashboardService.getDashboardStats().subscribe({
-        next: (response) => {
-          this.stats = response.stats;
-          console.log('Dashboard stats loaded:', response);
+        next: (dashboardStats: DashboardStats) => {
+          this.stats = this.transformStatsToCards(dashboardStats);
+          this.isLoading = false;
+          console.log('Dashboard stats loaded:', dashboardStats);
         },
         error: (error) => {
           console.error('Error loading dashboard stats:', error);
@@ -92,7 +85,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       })
     );
 
-    // Cargar alertas del dashboard
+    // Load dashboard alerts
     this.subscriptions.push(
       this.dashboardService.getDashboardAlerts().subscribe({
         next: (alerts) => {
@@ -107,31 +100,64 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Refrescar datos del dashboard
+   * Transform DashboardStats to StatCard array for display
    */
-  refreshDashboard() {
-    this.subscriptions.push(
-      this.dashboardService.refreshDashboard().subscribe({
-        next: (data) => {
-          console.log('Dashboard refreshed:', data);
-        },
-        error: (error) => {
-          console.error('Error refreshing dashboard:', error);
-          this.error = 'Error al actualizar el dashboard';
-        }
-      })
-    );
+  private transformStatsToCards(stats: DashboardStats): StatCard[] {
+    return [
+      {
+        title: 'Consultas Hoy',
+        value: stats.consultasHoy,
+        sub: 'Atenciones del día',
+        icon: 'calendar-outline',
+        color: 'primary'
+      },
+      {
+        title: 'Pacientes Activos',
+        value: stats.pacientesActivos,
+        sub: 'Total en sistema',
+        icon: 'people-outline',
+        color: 'success'
+      },
+      {
+        title: 'Exámenes Pendientes',
+        value: stats.examenPendientes,
+        sub: 'Órdenes sin completar',
+        icon: 'flask-outline',
+        color: 'warning'
+      },
+      {
+        title: 'Alertas Críticas',
+        value: stats.alertasCriticas,
+        sub: 'Requieren atención',
+        icon: 'warning-outline',
+        color: 'danger'
+      }
+    ];
   }
 
   /**
-   * Navegar a la gestión de pacientes
+   * Load quick actions for dashboard
+   */
+  private loadQuickActions() {
+    this.accionesRapidas = this.dashboardService.getQuickActions();
+  }
+
+  /**
+   * Refresh dashboard data
+   */
+  refreshDashboard() {
+    this.loadDashboardData();
+  }
+
+  /**
+   * Navigate to patients page
    */
   goToPatients() {
     this.router.navigateByUrl('/tabs/tab2');
   }
 
   /**
-   * Ver exámenes de un paciente específico
+   * View patient exams
    */
   verExamenesPaciente(pacienteId: string) {
     this.router.navigate(['/tabs/tab5'], { 
@@ -140,7 +166,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Ver ficha médica de un paciente
+   * View patient medical record
    */
   verFichaPaciente(pacienteId: string) {
     this.router.navigate(['/tabs/tab3'], { 
@@ -149,66 +175,92 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Manejar click en una alerta
+   * Handle alert click
    */
-  onAlertClick(alerta: Alert) {
-    if (alerta.patientId) {
-      this.verFichaPaciente(alerta.patientId);
-    }
-    
-    // Marcar alerta como leída
-    if (!alerta.read) {
-      this.subscriptions.push(
-        this.dashboardService.markAlertAsRead(alerta.id).subscribe({
-          next: () => {
-            // Actualizar el estado local
-            alerta.read = true;
-          },
-          error: (error) => {
-            console.error('Error marking alert as read:', error);
-          }
-        })
-      );
+  onAlertClick(alerta: AlertaDashboard) {
+    if (alerta.pacienteId) {
+      // Navigate based on alert type
+      switch (alerta.tipo) {
+        case 'examen':
+          this.verExamenesPaciente(alerta.pacienteId);
+          break;
+        case 'paciente':
+        case 'medicamento':
+        default:
+          this.verFichaPaciente(alerta.pacienteId);
+          break;
+      }
     }
   }
 
   /**
-   * Obtener color para las alertas según tipo
+   * Get color for alerts based on severity
    */
-  getAlertColor(tipo: string): string {
-    switch (tipo) {
-      case 'critico': return 'danger';
-      case 'moderado': return 'warning';
-      case 'info': return 'primary';
+  getAlertColor(severidad: 'baja' | 'media' | 'alta' | 'critica'): string {
+    switch (severidad) {
+      case 'critica': return 'danger';
+      case 'alta': return 'danger';
+      case 'media': return 'warning';
+      case 'baja': return 'primary';
       default: return 'medium';
     }
   }
 
   /**
-   * Obtener icono para las alertas según tipo
+   * Get icon for alerts based on type
    */
-  getAlertIcon(tipo: string): string {
+  getAlertIcon(tipo: 'paciente' | 'examen' | 'medicamento' | 'sistema'): string {
     switch (tipo) {
-      case 'critico': return 'warning';
-      case 'moderado': return 'alert-circle';
-      case 'info': return 'information-circle';
-      default: return 'notifications';
+      case 'paciente': return 'person-outline';
+      case 'examen': return 'flask-outline';
+      case 'medicamento': return 'medical-outline';
+      case 'sistema': return 'information-circle-outline';
+      default: return 'notifications-outline';
     }
   }
 
   /**
-   * Obtener alertas de exámenes críticos
+   * Get critical and high priority alerts
    */
-  getAlertasExamenes() {
+  getAlertasCriticas(): AlertaDashboard[] {
     return this.alertas.filter(alerta => 
-      alerta.type === 'critico' || alerta.type === 'moderado'
+      alerta.severidad === 'critica' || alerta.severidad === 'alta'
     );
   }
 
   /**
-   * Limpiar error
+   * Get exam-related alerts
+   */
+  getAlertasExamenes(): AlertaDashboard[] {
+    return this.alertas.filter(alerta => alerta.tipo === 'examen');
+  }
+
+  /**
+   * Get patient-related alerts
+   */
+  getAlertasPacientes(): AlertaDashboard[] {
+    return this.alertas.filter(alerta => alerta.tipo === 'paciente');
+  }
+
+  /**
+   * Clear error message
    */
   clearError() {
     this.error = null;
   }
+
+  /**
+   * Execute quick action
+   */
+  executeQuickAction(accion: AccionRapida) {
+    this.router.navigateByUrl(accion.ruta);
+  }
+
+  /**
+   * Helper method to convert Timestamp to Date for date pipe
+   */
+  formatAlertaFecha(fecha: Date | Timestamp): Date {
+    return fecha instanceof Date ? fecha : fecha.toDate();
+  }
 }
+

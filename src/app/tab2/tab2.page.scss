@@ -16,7 +16,23 @@
   ion-content { --background: var(--c-bg); }
 }
 
-.page-container { max-width: 1100px; margin: 0 auto; padding: 22px; }
+.page-container { 
+  max-width: 1100px; 
+  margin: 0 auto; 
+  padding: 1rem;
+}
+
+@media (min-width: 576px) {
+  .page-container {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding: 1.375rem;
+  }
+}
 
 /* ---------- Topbar ---------- */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
@@ -107,13 +123,20 @@
 /* CONTENEDOR del modal */
 .create-modal::part(content) {
   --height: auto;
-  --width: 720px;
+  --width: 95%;
+  --max-width: 720px;
   --border-radius: 16px;
   /* Fondo sólido (no transparente) */
   --background: #ffffff;
   background: #ffffff;
   border: 1px solid var(--c-border);
   box-shadow: 0 18px 40px rgba(15, 28, 46, 0.18);
+}
+
+@media (min-width: 768px) {
+  .create-modal::part(content) {
+    --width: 720px;
+  }
 }
 
 /* Fuerza tema claro dentro del modal */
@@ -209,8 +232,54 @@
 .actions-row .primary ion-icon { color: #ffffff; }
 .actions-row .primary:hover { filter: saturate(1.04); box-shadow: var(--elev-2); }
 
-/* Responsive */
+/* ============ RESPONSIVE ============ */
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .topbar {
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  
+  .actions {
+    width: 100%;
+    justify-content: stretch;
+    
+    .ghost, .primary {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+  
+  .section-title {
+    padding: 0.75rem 1rem;
+    
+    .titles h2 {
+      font-size: 1.125rem;
+    }
+  }
+  
+  .card-inner {
+    padding: 1rem;
+  }
+  
+  .actions-row {
+    flex-direction: column;
+    
+    .ghost, .primary {
+      width: 100%;
+    }
+  }
+}
+
+/* Tablet adjustments */
 @media (max-width: 768px) {
-  .create-modal::part(content) { --width: 94vw; }
-  .row-2 { grid-template-columns: 1fr; }
+  .row-2 { 
+    grid-template-columns: 1fr; 
+  }
+  
+  .patient-card .head {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
 }

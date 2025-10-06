@@ -97,9 +97,27 @@ ion-card {
 .ficha-container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: var(--sp-4);
+  padding: 1rem;
   background: var(--c-bg);
   min-height: 100vh;
+}
+
+@media (min-width: 576px) {
+  .ficha-container {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .ficha-container {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ficha-container {
+    padding: 2rem;
+  }
 }
 
 /* HEADER */

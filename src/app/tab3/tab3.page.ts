@@ -9,20 +9,28 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, forkJoin } from 'rxjs';
+import { Timestamp } from '@angular/fire/firestore';
 
-// Servicios
-import { PatientService } from '../OLDservices/patient.service';
-import { MedicalConsultationService } from '../OLDservices/medical-consultation.service';
-import { ExamService } from '../OLDservices/exam.service';
+// Servicios Firestore
+import { PacientesService } from '../features/pacientes/data/pacientes.service';
+import { FichasMedicasService } from '../features/fichas-medicas/data/fichas-medicas.service';
+import { ConsultasService } from '../features/consultas/data/consultas.service';
+import { ExamenesService } from '../features/examenes/data/examenes.service';
 
 // Modelos
-import { Patient } from '../models/patient.model';
+import { Paciente } from '../models/paciente.model';
+import { FichaMedica } from '../models/ficha-medica.model';
+import { Consulta } from '../models/consulta.model';
+import { OrdenExamen } from '../models/orden-examen.model';
 
+/**
+ * UI interface for medical record display
+ */
 interface FichaMedicaUI {
   datosPersonales: {
     nombres: string;
     apellidos: string;
-    documento: string;
+    rut: string;
     edad: number;
     grupoSanguineo: string;
     direccion: string;
@@ -34,8 +42,37 @@ interface FichaMedicaUI {
     descripcion: string;
     criticidad: 'alta' | 'media' | 'baja';
   }>;
-  consultas: any[];
-  examenes: any[];
+  consultas: ConsultaUI[];
+  examenes: OrdenExamenUI[];
+  historiaMedica?: {
+    antecedentesPersonales: string[];
+    antecedentesFamiliares: string[];
+    hospitalizacionesPrevias?: number;
+  };
+}
+
+/**
+ * UI interface for consultations with additional display properties
+ */
+interface ConsultaUI extends Consulta {
+  hora?: string;
+  especialidad?: string;
+  medico?: string;
+  signosVitales?: {
+    presionArterial?: string;
+    frecuenciaCardiaca?: number;
+    temperatura?: number;
+    peso?: number;
+  };
+}
+
+/**
+ * UI interface for exam orders with additional display properties
+ */
+interface OrdenExamenUI extends OrdenExamen {
+  nombre?: string;
+  resultado?: string;
+  detalle?: string;
 }
 
 @Component({
@@ -44,9 +81,9 @@ interface FichaMedicaUI {
   styleUrls: ['tab3.page.scss'],
   standalone: true,
   imports: [
-    IonContent, IonIcon, IonButton, IonSpinner, IonToast,
+    IonContent, IonIcon, IonButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
-    IonBadge, IonGrid, IonRow, IonCol, IonList, IonItem, IonLabel,
+    IonBadge, IonGrid, IonRow, IonCol,
     IonTextarea, CommonModule, FormsModule
   ],
 })
@@ -54,6 +91,8 @@ export class Tab3Page implements OnInit, OnDestroy {
   
   // Estados del componente
   ficha: FichaMedicaUI | null = null;
+  fichaId: string | null = null;
+  paciente: Paciente | null = null;
   isLoading = false;
   error: string | null = null;
   patientId: string | null = null;
@@ -66,9 +105,10 @@ export class Tab3Page implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private patientService: PatientService,
-    private consultationService: MedicalConsultationService,
-    private examService: ExamService
+    private pacientesService: PacientesService,
+    private fichasMedicasService: FichasMedicasService,
+    private consultasService: ConsultasService,
+    private examenesService: ExamenesService
   ) {}
 
   ngOnInit() {
@@ -90,34 +130,43 @@ export class Tab3Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Cargar todos los datos del paciente
+   * Cargar todos los datos del paciente desde Firestore
    */
   loadPatientData(patientId: string) {
     this.isLoading = true;
     this.error = null;
 
-    // Cargar datos en paralelo
-    const patientData$ = this.patientService.getPatientById(patientId);
-    const consultations$ = this.consultationService.getPatientConsultations(patientId, 1, 10);
-    const exams$ = this.examService.getPatientExams(patientId);
+    // Cargar datos en paralelo usando forkJoin
+    const paciente$ = this.pacientesService.getPacienteById(patientId);
+    const ficha$ = this.fichasMedicasService.getFichaByPacienteId(patientId);
+    const consultas$ = this.consultasService.getConsultasByPaciente(patientId);
+    const examenes$ = this.examenesService.getOrdenesByPaciente(patientId);
 
     this.subscriptions.push(
       forkJoin({
-        patient: patientData$,
-        consultations: consultations$,
-        exams: exams$
+        paciente: paciente$,
+        ficha: ficha$,
+        consultas: consultas$,
+        examenes: examenes$
       }).subscribe({
         next: (data) => {
-          if (data.patient) {
-            this.ficha = this.buildFichaMedica(data);
+          if (data.paciente && data.ficha) {
+            this.paciente = data.paciente;
+            this.fichaId = data.ficha.id || null;
+            this.ficha = this.buildFichaMedicaUI(
+              data.paciente,
+              data.ficha,
+              data.consultas,
+              data.examenes
+            );
           } else {
-            this.error = 'No se encontró el paciente';
+            this.error = 'No se encontró el paciente o su ficha médica';
           }
           this.isLoading = false;
         },
         error: (error) => {
           console.error('Error loading patient data:', error);
-          this.error = 'Error al cargar los datos del paciente';
+          this.error = 'Error al cargar los datos del paciente: ' + (error.message || 'Desconocido');
           this.isLoading = false;
         }
       })
@@ -125,59 +174,75 @@ export class Tab3Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Construir la ficha médica a partir de los datos del backend
+   * Construir la ficha médica UI a partir de los datos de Firestore
    */
-  private buildFichaMedica(data: any): FichaMedicaUI {
-    const patient: Patient = data.patient;
-    
+  private buildFichaMedicaUI(
+    paciente: Paciente,
+    ficha: FichaMedica,
+    consultas: Consulta[],
+    examenes: OrdenExamen[]
+  ): FichaMedicaUI {
     return {
       datosPersonales: {
-        nombres: patient.nombres,
-        apellidos: patient.apellidos,
-        documento: patient.documento,
-        edad: this.calculateAge(patient.fechaNacimiento),
-        grupoSanguineo: patient.grupoSanguineo,
-        direccion: patient.direccion,
-        telefono: patient.telefono,
-        contactoEmergencia: `${patient.contactoEmergencia.nombre} - ${patient.contactoEmergencia.telefono}`
+        nombres: paciente.nombre,
+        apellidos: paciente.apellido,
+        rut: paciente.rut,
+        edad: this.calculateAge(paciente.fechaNacimiento),
+        grupoSanguineo: paciente.grupoSanguineo || 'No registrado',
+        direccion: paciente.direccion,
+        telefono: paciente.telefono,
+        contactoEmergencia: 'Contacto por definir' // TODO: Add to Paciente model
       },
       alertasMedicas: [
-        // Alergias
-        ...patient.alergias.map(alergia => ({
+        // Alergias del paciente
+        ...(paciente.alergias || []).map(alergia => ({
           tipo: 'alergia' as const,
           descripcion: alergia,
           criticidad: 'alta' as const
         })),
-        // Medicamentos
-        ...patient.medicamentos.map(medicamento => ({
-          tipo: 'medicamento' as const,
-          descripcion: medicamento,
+        // Enfermedades crónicas
+        ...(paciente.enfermedadesCronicas || []).map(enfermedad => ({
+          tipo: 'antecedente' as const,
+          descripcion: enfermedad,
           criticidad: 'media' as const
         })),
-        // Antecedentes
-        ...patient.antecedentes.map(antecedente => ({
+        // Alertas médicas
+        ...(paciente.alertasMedicas || []).map(alerta => ({
           tipo: 'antecedente' as const,
-          descripcion: antecedente,
-          criticidad: 'media' as const
+          descripcion: alerta.descripcion,
+          criticidad: (alerta.severidad === 'critica' || alerta.severidad === 'alta' 
+            ? 'alta' 
+            : (alerta.severidad === 'media' ? 'media' : 'baja')) as 'alta' | 'media' | 'baja'
         }))
       ],
-      consultas: data.consultations.consultas || [],
-      examenes: data.exams.examenes || []
+      consultas: consultas.slice(0, 10), // Últimas 10 consultas
+      examenes: examenes.slice(0, 10), // Últimas 10 órdenes de examen
+      historiaMedica: {
+        antecedentesPersonales: ficha.antecedentes?.personales ? [ficha.antecedentes.personales] : [],
+        antecedentesFamiliares: ficha.antecedentes?.familiares ? [ficha.antecedentes.familiares] : [],
+        hospitalizacionesPrevias: ficha.antecedentes?.hospitalizaciones ? 1 : 0
+      }
     };
   }
 
   /**
    * Calcular edad a partir de fecha de nacimiento
    */
-  private calculateAge(fechaNacimiento: Date): number {
+  private calculateAge(fechaNacimiento?: Date | Timestamp): number {
     if (!fechaNacimiento) return 0;
-    const birth = new Date(fechaNacimiento);
+    
+    const birth = fechaNacimiento instanceof Timestamp 
+      ? fechaNacimiento.toDate() 
+      : new Date(fechaNacimiento);
+    
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
+    
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
       age--;
     }
+    
     return age;
   }
 
@@ -202,10 +267,34 @@ export class Tab3Page implements OnInit, OnDestroy {
     }
   }
 
-  nuevaConsulta() {
-    if (this.patientId) {
-      // TODO: Implementar modal o navegación para nueva consulta
-      console.log('Nueva consulta para paciente:', this.patientId);
+  async nuevaConsulta() {
+    if (!this.patientId || !this.fichaId) {
+      console.error('No se puede crear consulta sin paciente o ficha');
+      return;
+    }
+
+    // TODO: Implementar modal para nueva consulta con formulario completo
+    // Por ahora crear una consulta básica
+    try {
+      const consultaData = {
+        idPaciente: this.patientId,
+        idFichaMedica: this.fichaId,
+        fecha: Timestamp.now(),
+        motivo: 'Consulta general', // TODO: Get from form
+        tratamiento: '',
+        observaciones: '',
+        idProfesional: 'medico-general', // TODO: Get from auth
+        notas: [],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+
+      await this.consultasService.createConsulta(consultaData);
+      console.log('Nueva consulta creada exitosamente');
+      this.refreshData(); // Reload data to show new consultation
+    } catch (error) {
+      console.error('Error creando consulta:', error);
+      this.error = 'Error al crear la consulta';
     }
   }
 
@@ -242,22 +331,34 @@ export class Tab3Page implements OnInit, OnDestroy {
 
   estadoExamenColor(estado: string): string {
     switch (estado) {
-      case 'normal': return 'success';
-      case 'atencion': return 'warning';
-      case 'critico': return 'danger';
+      case 'normal': 
+      case 'completado': return 'success';
+      case 'atencion': 
+      case 'en_proceso': return 'warning';
+      case 'critico': 
+      case 'solicitado': return 'danger';
+      case 'pendiente': return 'warning';
       default: return 'medium';
     }
   }
 
-  formatDate(date: Date | string): string {
+  formatDate(date: Date | Timestamp | string | undefined): string {
     if (!date) return '';
-    const d = new Date(date);
+    
+    const d = date instanceof Timestamp 
+      ? date.toDate() 
+      : new Date(date);
+    
     return d.toLocaleDateString('es-CL');
   }
 
-  formatDateShort(date: Date | string): string {
+  formatDateShort(date: Date | Timestamp | string | undefined): string {
     if (!date) return '';
-    const d = new Date(date);
+    
+    const d = date instanceof Timestamp 
+      ? date.toDate() 
+      : new Date(date);
+    
     return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
   }
 
@@ -271,16 +372,26 @@ export class Tab3Page implements OnInit, OnDestroy {
       case 'atencion': return 'Atención';
       case 'critico': return 'Crítico';
       case 'solicitado': return 'Solicitado';
+      case 'pendiente': return 'Pendiente';
       case 'en_proceso': return 'En Proceso';
       case 'completado': return 'Completado';
       default: return estado;
     }
   }
 
-  formatTime(time: string | Date): string {
+  formatTime(time: string | Date | Timestamp): string {
     if (!time) return '';
-    if (typeof time === 'string') return time;
-    return time.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    
+    let date: Date;
+    if (typeof time === 'string') {
+      return time; // Already formatted
+    } else if (time instanceof Timestamp) {
+      date = time.toDate();
+    } else {
+      date = time;
+    }
+    
+    return date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
   // ============== REFRESCAR DATOS ==============
@@ -295,12 +406,31 @@ export class Tab3Page implements OnInit, OnDestroy {
   }
 
   // ============== NOTAS RÁPIDAS ==============
-  guardarNota() {
-    if (!this.nuevaNota.trim()) return;
+  async guardarNota() {
+    if (!this.nuevaNota.trim() || !this.patientId || !this.fichaId) return;
     
-    // TODO: Implementar guardado de nota en el backend
-    console.log('Guardar nota:', this.nuevaNota);
-    this.nuevaNota = '';
+    try {
+      // Get the most recent consultation to add note to
+      const consultas = await this.consultasService.getConsultasByPaciente(this.patientId).toPromise();
+      
+      if (consultas && consultas.length > 0) {
+        const consultaId = consultas[0].id!;
+        await this.consultasService.addNotaRapida(consultaId, {
+          texto: this.nuevaNota.trim(),
+          autor: 'medico-general' // TODO: Get from auth
+        });
+        console.log('Nota rápida guardada');
+        this.nuevaNota = '';
+        this.refreshData();
+      } else {
+        // Si no hay consultas, crear una nueva solo para la nota
+        await this.nuevaConsulta();
+        // Note will be added after consultation is created
+      }
+    } catch (error) {
+      console.error('Error guardando nota:', error);
+      this.error = 'Error al guardar la nota';
+    }
   }
 
   agregarNota() {

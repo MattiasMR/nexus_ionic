@@ -12,6 +12,8 @@ $RECYCLE.BIN/
 *.log
 log.txt
 
+# Firebase Service Account Key (SENSITIVE!)
+serviceAccountKey.json
 
 /.sourcemaps
 /.versions

@@ -37,7 +37,7 @@
               <div class="info-group">
                 <div class="info-item">
                   <span class="info-label">RUT:</span>
-                  <span class="info-value">{{ ficha?.datosPersonales?.documento }}</span>
+                  <span class="info-value">{{ ficha?.datosPersonales?.rut }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Edad:</span>
@@ -155,19 +155,19 @@
                 <div class="vital-signs-grid">
                   <div class="vital-item">
                     <span class="vital-label">PA:</span>
-                    <span class="vital-value">{{ consulta.signosVitales.presionArterial }}</span>
+                    <span class="vital-value">{{ consulta.signosVitales?.presionArterial || 'N/A' }}</span>
                   </div>
                   <div class="vital-item">
                     <span class="vital-label">FC:</span>
-                    <span class="vital-value">{{ consulta.signosVitales.frecuenciaCardiaca }} bpm</span>
+                    <span class="vital-value">{{ consulta.signosVitales?.frecuenciaCardiaca || 'N/A' }} bpm</span>
                   </div>
                   <div class="vital-item">
                     <span class="vital-label">T°:</span>
-                    <span class="vital-value">{{ consulta.signosVitales.temperatura }}°C</span>
+                    <span class="vital-value">{{ consulta.signosVitales?.temperatura || 'N/A' }}°C</span>
                   </div>
                   <div class="vital-item">
                     <span class="vital-label">Peso:</span>
-                    <span class="vital-value">{{ consulta.signosVitales.peso }} kg</span>
+                    <span class="vital-value">{{ consulta.signosVitales?.peso || 'N/A' }} kg</span>
                   </div>
                 </div>
               </div>

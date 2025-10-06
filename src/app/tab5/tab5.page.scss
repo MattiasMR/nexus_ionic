@@ -37,7 +37,19 @@
 .examenes-container {
   max-width: 700px;
   margin: 0 auto;
-  padding: var(--sp-6);
+  padding: 1rem;
+}
+
+@media (min-width: 576px) {
+  .examenes-container {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .examenes-container {
+    padding: 1.5rem;
+  }
 }
 
 .examenes-title {

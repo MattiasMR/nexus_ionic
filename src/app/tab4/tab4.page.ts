@@ -11,10 +11,34 @@ import {
 import { addIcons } from 'ionicons';
 import { add, create, ban, calendar, time, medical, person, warning, checkmarkCircle } from 'ionicons/icons';
 import { Subscription } from 'rxjs';
+import { Timestamp } from '@angular/fire/firestore';
 
-// Servicios
-import { MedicationService, Medication, CreateMedicationRequest } from '../OLDservices/medication.service';
-import { PatientService } from '../OLDservices/patient.service';
+// Servicios Firestore
+import { MedicamentosService } from '../features/medicamentos/data/medicamentos.service';
+import { PacientesService } from '../features/pacientes/data/pacientes.service';
+
+// Modelos
+import { Receta, MedicamentoRecetado } from '../models/receta.model';
+import { Medicamento } from '../models/medicamento.model';
+
+/**
+ * UI interface for medication display with compatibility fields
+ * Flattens first medication properties for template compatibility
+ */
+interface RecetaUI extends Receta {
+  estado?: 'activo' | 'suspendido' | 'completado';
+  medicamentosPrincipales?: string; // Comma-separated names for display
+  
+  // Flattened properties from first medication for template compatibility
+  nombre?: string; // First medication name
+  dosis?: string; // First medication dose
+  frecuencia?: string; // First medication frequency
+  via?: string; // Administration route
+  fechaInicio?: string; // Start date
+  duracion?: string; // Duration
+  indicaciones?: string; // Instructions
+  medicoPrescriptor?: string; // Prescribing doctor name
+}
 
 @Component({
   selector: 'app-tab4',
@@ -25,24 +49,28 @@ import { PatientService } from '../OLDservices/patient.service';
     IonHeader, IonToolbar, IonTitle, IonContent, IonBadge, IonButton, 
     IonIcon, IonGrid, IonRow, IonCol, IonItem, IonLabel, IonModal, 
     IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
-    IonSpinner, IonToast,
     CommonModule, FormsModule
   ]
 })
 export class Tab4Page implements OnInit, OnDestroy {
   
   // Estados del componente
-  medicamentosActuales: Medication[] = [];
+  medicamentosActuales: RecetaUI[] = [];
   isLoading = false;
   error: string | null = null;
   patientId: string | null = null;
   
-  // Modal para crear medicamento
+  // Modal para crear receta/medicamento
   isCreateModalOpen = false;
-  newMedication: Partial<CreateMedicationRequest> = this.blankMedication();
+  newMedication: Partial<MedicamentoRecetado> = this.blankMedicamento();
   
-  // Propiedades para compatibilidad con HTML
-  nuevoMedicamento: Partial<CreateMedicationRequest> = this.blankMedication();
+  // Extended form model for template compatibility (includes extra fields)
+  nuevoMedicamento: Partial<MedicamentoRecetado> & {
+    nombre?: string;
+    via?: string;
+    medicoPrescriptor?: string;
+    fechaInicio?: string;
+  } = this.blankMedicamento();
   
   // Modal para indicaciones
   isModalIndicacionOpen = false;
@@ -57,20 +85,20 @@ export class Tab4Page implements OnInit, OnDestroy {
   // Propiedades adicionales para el HTML
   alertasInteracciones: any[] = [];
   indicacionesMedicas: any[] = [];
-  historialMedicacion: Medication[] = [];
+  historialMedicacion: RecetaUI[] = [];
   isModalOpen = false;
   
-  // Paginación
-  currentPage = 1;
-  totalPages = 1;
+  // Catalog search
+  medicamentosCatalogo: Medicamento[] = [];
+  searchTerm = '';
   
   private subscriptions: Subscription[] = [];
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private medicationService: MedicationService,
-    private patientService: PatientService
+    private medicamentosService: MedicamentosService,
+    private pacientesService: PacientesService
   ) {
     addIcons({ add, create, ban, calendar, time, medical, person, warning, checkmarkCircle });
   }
@@ -88,45 +116,100 @@ export class Tab4Page implements OnInit, OnDestroy {
       })
     );
 
-    this.setupSubscriptions();
+    // Load medication catalog for search
+    this.loadMedicamentosCatalogo();
   }
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  private setupSubscriptions() {
+  /**
+   * Cargar catálogo de medicamentos
+   */
+  async loadMedicamentosCatalogo() {
+    try {
+      const stats = await this.medicamentosService.getMostPrescribedMedicamentos(20);
+      // getMostPrescribedMedicamentos returns stats, not full Medicamento objects
+      // For now, we'll keep catalog empty and load on search
+      this.medicamentosCatalogo = [];
+    } catch (error) {
+      console.error('Error loading medications catalog:', error);
+    }
+  }
+
+  /**
+   * Buscar medicamento en catálogo
+   */
+  searchMedicamento() {
+    if (!this.searchTerm.trim()) {
+      this.loadMedicamentosCatalogo();
+      return;
+    }
+
     this.subscriptions.push(
-      this.medicationService.loading$.subscribe(loading => {
-        this.isLoading = loading;
-      }),
-      this.medicationService.error$.subscribe(error => {
-        this.error = error;
+      this.medicamentosService.searchMedicamentos(this.searchTerm).subscribe({
+        next: (medicamentos) => {
+          this.medicamentosCatalogo = medicamentos;
+        },
+        error: (error) => {
+          console.error('Error searching medications:', error);
+        }
       })
     );
   }
 
   /**
-   * Cargar medicamentos del paciente
+   * Cargar recetas/medicamentos del paciente
    */
-  loadMedications(patientId: string, page: number = 1) {
-    this.currentPage = page;
+  loadMedications(patientId: string) {
+    this.isLoading = true;
+    this.error = null;
     
+    // Get active prescriptions (last 90 days)
     this.subscriptions.push(
-      this.medicationService.getPatientMedications(patientId, page, 20).subscribe({
-        next: (response) => {
-          this.medicamentosActuales = response.medicamentos;
-          this.historialMedicacion = response.medicamentos; // Sincronizar
-          this.totalPages = response.pagination.totalPages;
-          this.error = null;
+      this.medicamentosService.getRecetasActivas(patientId).subscribe({
+        next: (recetas) => {
+          this.medicamentosActuales = recetas.map(this.enrichReceta);
+          this.historialMedicacion = [...this.medicamentosActuales];
+          this.isLoading = false;
+          console.log('Prescriptions loaded:', recetas.length);
         },
         error: (error) => {
           console.error('Error loading medications:', error);
           this.error = 'Error al cargar los medicamentos';
+          this.isLoading = false;
         }
       })
     );
   }
+
+  /**
+   * Enrich receta with UI fields and flatten first medication for template
+   */
+  private enrichReceta = (receta: Receta): RecetaUI => {
+    const firstMed = receta.medicamentos[0];
+    const fechaReceta = receta.fecha instanceof Timestamp 
+      ? receta.fecha.toDate() 
+      : new Date(receta.fecha);
+    
+    return {
+      ...receta,
+      estado: 'activo', // Default, can be extended with more logic
+      medicamentosPrincipales: receta.medicamentos
+        .map(m => m.nombreMedicamento)
+        .join(', '),
+      // Flatten first medication for template compatibility
+      nombre: firstMed?.nombreMedicamento || 'Sin nombre',
+      dosis: firstMed?.dosis || 'No especificada',
+      frecuencia: firstMed?.frecuencia || 'No especificada',
+      via: 'Oral', // Default, not in model yet
+      fechaInicio: fechaReceta.toLocaleDateString('es-CL'),
+      duracion: firstMed?.duracion || 'No especificada',
+      indicaciones: firstMed?.indicaciones || receta.observaciones || '',
+      medicoPrescriptor: 'Dr. Sistema' // TODO: Lookup from idProfesional
+    };
+  };
 
   // ============== NAVEGACIÓN ==============
   goBack() {
@@ -141,10 +224,14 @@ export class Tab4Page implements OnInit, OnDestroy {
     }
   }
 
-  // ============== CREAR MEDICAMENTO ==============
+  volverAFicha() {
+    this.goBack();
+  }
+
+  // ============== CREAR MEDICAMENTO/RECETA ==============
   openCreateModal() {
-    this.newMedication = this.blankMedication();
-    this.nuevoMedicamento = this.blankMedication();
+    this.newMedication = this.blankMedicamento();
+    this.nuevoMedicamento = this.blankMedicamento();
     this.isCreateModalOpen = true;
   }
 
@@ -157,10 +244,100 @@ export class Tab4Page implements OnInit, OnDestroy {
     this.openCreateModal();
   }
 
-  agregarMedicamento() {
-    this.saveMedication();
+  cerrarModal() {
+    this.isModalOpen = false;
+    this.isCreateModalOpen = false;
   }
 
+  async agregarMedicamento() {
+    await this.saveMedication();
+  }
+
+  async saveMedication() {
+    if (!this.patientId || !this.nuevoMedicamento.nombreMedicamento?.trim()) {
+      this.error = 'Nombre del medicamento es obligatorio';
+      return;
+    }
+
+    this.isLoading = true;
+
+    // Create medicamento recetado
+    const medicamentoRecetado: MedicamentoRecetado = {
+      idMedicamento: this.nuevoMedicamento.idMedicamento || 'manual-entry',
+      nombreMedicamento: this.nuevoMedicamento.nombreMedicamento,
+      dosis: this.nuevoMedicamento.dosis || 'Sin especificar',
+      frecuencia: this.nuevoMedicamento.frecuencia || 'Sin especificar',
+      duracion: this.nuevoMedicamento.duracion || 'Sin especificar',
+      indicaciones: this.nuevoMedicamento.indicaciones
+    };
+
+    // Create receta with this medicamento
+    const recetaData: Omit<Receta, 'id'> = {
+      idPaciente: this.patientId,
+      idProfesional: 'medico-general', // TODO: Get from auth
+      fecha: Timestamp.now(),
+      medicamentos: [medicamentoRecetado],
+      observaciones: this.nuevoMedicamento.indicaciones || '',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    try {
+      const recetaId = await this.medicamentosService.createReceta(recetaData);
+      console.log('Receta created with ID:', recetaId);
+      
+      // Reload medications
+      this.loadMedications(this.patientId);
+      this.closeCreateModal();
+      this.error = null;
+    } catch (error: any) {
+      console.error('Error creating prescription:', error);
+      this.error = 'Error al crear la receta: ' + (error.message || 'Desconocido');
+      this.isLoading = false;
+    }
+  }
+
+  // ============== GESTIÓN DE MEDICAMENTOS ==============
+  /**
+   * Note: Our Receta model doesn't have status field yet
+   * These methods are kept for template compatibility but will need model extension
+   */
+  async suspenderMedicamento(receta: RecetaUI) {
+    console.log('Suspender medicamento feature not implemented - requires Receta model extension');
+    // TODO: Add 'estado' field to Receta model and implement updateRecetaEstado() in service
+  }
+
+  async reactivarMedicamento(receta: RecetaUI) {
+    console.log('Reactivar medicamento feature not implemented - requires Receta model extension');
+    // TODO: Add 'estado' field to Receta model
+  }
+
+  async completarMedicamento(receta: RecetaUI) {
+    console.log('Completar medicamento feature not implemented - requires Receta model extension');
+    // TODO: Add 'estado' field to Receta model
+  }
+
+  async eliminarMedicamento(receta: RecetaUI) {
+    if (!receta.id) return;
+    
+    if (confirm('¿Está seguro de que desea eliminar esta receta?')) {
+      try {
+        await this.medicamentosService.deleteReceta(receta.id);
+        this.medicamentosActuales = this.medicamentosActuales.filter(m => m.id !== receta.id);
+        console.log('Receta deleted successfully');
+      } catch (error) {
+        console.error('Error deleting prescription:', error);
+        this.error = 'Error al eliminar la receta';
+      }
+    }
+  }
+
+  modificarMedicamento(receta: RecetaUI) {
+    console.log('Modificar medicamento:', receta);
+    // TODO: Implement edit modal
+  }
+
+  // ============== INDICACIONES MÉDICAS ==============
   abrirModalNuevaIndicacion() {
     this.nuevaIndicacion = {
       titulo: '',
@@ -177,12 +354,12 @@ export class Tab4Page implements OnInit, OnDestroy {
   }
 
   agregarIndicacion() {
-    // Lógica para agregar indicación
+    // TODO: Implement medical indications feature
+    // This could be part of Consulta notes or a separate collection
     console.log('Agregando indicación:', this.nuevaIndicacion);
     this.cerrarModalIndicacion();
   }
 
-  // Métodos adicionales para compatibilidad con HTML
   getTipoIndicacionColor(tipo: string): string {
     switch(tipo) {
       case 'critica': return 'danger';
@@ -194,152 +371,7 @@ export class Tab4Page implements OnInit, OnDestroy {
 
   completarIndicacion(indicacion: any) {
     console.log('Completar indicación:', indicacion);
-  }
-
-  cerrarModal() {
-    this.isModalOpen = false;
-    this.isCreateModalOpen = false;
-  }
-
-  volverAFicha() {
-    this.goBack();
-  }
-
-  getEstadoColor(estado: string): string {
-    return this.estadoColor(estado);
-  }
-
-  modificarMedicamento(medicamento: Medication) {
-    console.log('Modificar medicamento:', medicamento);
-    // Implementar lógica de modificación
-  }
-
-  saveMedication() {
-    if (!this.patientId || !this.nuevoMedicamento.nombre?.trim()) {
-      this.error = 'Nombre del medicamento es obligatorio';
-      return;
-    }
-
-    const medicationData: CreateMedicationRequest = {
-      nombre: this.nuevoMedicamento.nombre,
-      principioActivo: this.nuevoMedicamento.principioActivo || '',
-      dosis: this.nuevoMedicamento.dosis || '',
-      frecuencia: this.nuevoMedicamento.frecuencia || '',
-      via: this.nuevoMedicamento.via || 'oral',
-      duracion: this.nuevoMedicamento.duracion || '',
-      indicaciones: this.nuevoMedicamento.indicaciones || '',
-      contraindicaciones: this.nuevoMedicamento.contraindicaciones || [],
-      efectosSecundarios: this.nuevoMedicamento.efectosSecundarios || [],
-      medicoPrescriptor: this.nuevoMedicamento.medicoPrescriptor || 'Dr. No especificado',
-      fechaInicio: this.nuevoMedicamento.fechaInicio || new Date(),
-      fechaFin: this.nuevoMedicamento.fechaFin,
-      observaciones: this.nuevoMedicamento.observaciones
-    };
-
-    this.subscriptions.push(
-      this.medicationService.createMedication(this.patientId, medicationData).subscribe({
-        next: (newMedication) => {
-          if (newMedication) {
-            this.medicamentosActuales = [newMedication, ...this.medicamentosActuales];
-            this.closeCreateModal();
-            this.error = null;
-          }
-        },
-        error: (error) => {
-          console.error('Error creating medication:', error);
-          this.error = 'Error al crear el medicamento';
-        }
-      })
-    );
-  }
-
-  // ============== GESTIÓN DE MEDICAMENTOS ==============
-  suspenderMedicamento(medication: Medication) {
-    this.subscriptions.push(
-      this.medicationService.changeMedicationStatus(medication.id, 'suspendido').subscribe({
-        next: (updatedMedication) => {
-          if (updatedMedication) {
-            const index = this.medicamentosActuales.findIndex(m => m.id === medication.id);
-            if (index >= 0) {
-              this.medicamentosActuales[index] = updatedMedication;
-            }
-          }
-        },
-        error: (error) => {
-          console.error('Error suspending medication:', error);
-          this.error = 'Error al suspender el medicamento';
-        }
-      })
-    );
-  }
-
-  reactivarMedicamento(medication: Medication) {
-    this.subscriptions.push(
-      this.medicationService.changeMedicationStatus(medication.id, 'activo').subscribe({
-        next: (updatedMedication) => {
-          if (updatedMedication) {
-            const index = this.medicamentosActuales.findIndex(m => m.id === medication.id);
-            if (index >= 0) {
-              this.medicamentosActuales[index] = updatedMedication;
-            }
-          }
-        },
-        error: (error) => {
-          console.error('Error reactivating medication:', error);
-          this.error = 'Error al reactivar el medicamento';
-        }
-      })
-    );
-  }
-
-  completarMedicamento(medication: Medication) {
-    this.subscriptions.push(
-      this.medicationService.changeMedicationStatus(medication.id, 'completado').subscribe({
-        next: (updatedMedication) => {
-          if (updatedMedication) {
-            const index = this.medicamentosActuales.findIndex(m => m.id === medication.id);
-            if (index >= 0) {
-              this.medicamentosActuales[index] = updatedMedication;
-            }
-          }
-        },
-        error: (error) => {
-          console.error('Error completing medication:', error);
-          this.error = 'Error al completar el medicamento';
-        }
-      })
-    );
-  }
-
-  eliminarMedicamento(medication: Medication) {
-    if (confirm('¿Está seguro de que desea eliminar este medicamento?')) {
-      this.subscriptions.push(
-        this.medicationService.deleteMedication(medication.id).subscribe({
-          next: (success) => {
-            if (success) {
-              this.medicamentosActuales = this.medicamentosActuales.filter(m => m.id !== medication.id);
-            }
-          },
-          error: (error) => {
-            console.error('Error deleting medication:', error);
-            this.error = 'Error al eliminar el medicamento';
-          }
-        })
-      );
-    }
-  }
-
-  // ============== PAGINACIÓN ==============
-  previousPage() {
-    if (this.currentPage > 1 && this.patientId) {
-      this.loadMedications(this.patientId, this.currentPage - 1);
-    }
-  }
-
-  nextPage() {
-    if (this.currentPage < this.totalPages && this.patientId) {
-      this.loadMedications(this.patientId, this.currentPage + 1);
-    }
+    // TODO: Implement indication completion
   }
 
   // ============== UTILIDADES UI ==============
@@ -360,16 +392,24 @@ export class Tab4Page implements OnInit, OnDestroy {
     }
   }
 
-  formatDate(date: Date | string): string {
+  getEstadoColor(estado?: string): string {
+    return this.estadoColor(estado || 'activo');
+  }
+
+  formatDate(date: Date | Timestamp | string | undefined): string {
     if (!date) return '';
-    const d = new Date(date);
+    
+    const d = date instanceof Timestamp 
+      ? date.toDate() 
+      : new Date(date);
+    
     return d.toLocaleDateString('es-CL');
   }
 
   // ============== REFRESCAR DATOS ==============
   refreshMedications() {
     if (this.patientId) {
-      this.loadMedications(this.patientId, this.currentPage);
+      this.loadMedications(this.patientId);
     }
   }
 
@@ -377,20 +417,23 @@ export class Tab4Page implements OnInit, OnDestroy {
     this.error = null;
   }
 
-  private blankMedication(): Partial<CreateMedicationRequest> {
+  private blankMedicamento(): Partial<MedicamentoRecetado> & {
+    nombre?: string;
+    via?: string;
+    medicoPrescriptor?: string;
+    fechaInicio?: string;
+  } {
     return {
-      nombre: '',
-      principioActivo: '',
+      idMedicamento: '',
+      nombreMedicamento: '',
       dosis: '',
       frecuencia: '',
-      via: 'oral',
       duracion: '',
       indicaciones: '',
-      contraindicaciones: [],
-      efectosSecundarios: [],
-      medicoPrescriptor: '',
-      fechaInicio: new Date(),
-      observaciones: ''
+      nombre: '', // Extra field for template
+      via: 'Oral', // Extra field for template
+      medicoPrescriptor: '', // Extra field for template
+      fechaInicio: '' // Extra field for template
     };
   }
 }
