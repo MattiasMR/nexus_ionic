@@ -50,11 +50,36 @@
     display: flex;
     align-items: center;
     margin-bottom: 12px;
+    gap: 12px;
 
     ion-avatar {
       width: 40px;
       height: 40px;
-      margin-right: 12px;
+      margin-right: 0;
+    }
+    
+    .patient-avatar-alert {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 14px;
+      color: #ffffff;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    
+    .patient-avatar-alert:hover {
+      transform: scale(1.05);
+    }
+    
+    .alerta-info {
+      flex: 1;
+      min-width: 0;
     }
 
     h3 {
@@ -62,6 +87,20 @@
       font-size: 1.1rem;
       font-weight: 600;
       color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .alerta-tipo {
+      font-size: 0.75rem;
+      color: #666;
+      font-weight: 600;
+    }
+    
+    .alert-type-icon {
+      font-size: 24px;
+      flex-shrink: 0;
     }
   }
 

@@ -21,6 +21,7 @@ import { ExamenesService } from '../../examenes/data/examenes.service';
 
 // Components
 import { NuevaConsultaModalComponent } from '../components/nueva-consulta-modal/nueva-consulta-modal.component';
+import { TimelineComponent, TimelineItem } from '../../../shared/components/timeline/timeline.component';
 
 // Modelos
 import { Paciente } from '../../../models/paciente.model';
@@ -93,7 +94,7 @@ interface OrdenExamenUI extends OrdenExamen {
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
     IonBadge, IonGrid, IonRow, IonCol,
     IonTextarea, IonInput, IonSelect, IonSelectOption,
-    CommonModule, FormsModule
+    CommonModule, FormsModule, TimelineComponent
   ],
 })
 export class ConsultasPage implements OnInit, OnDestroy {
@@ -540,6 +541,60 @@ export class ConsultasPage implements OnInit, OnDestroy {
    */
   getAvatarStyle(nombre?: string, apellido?: string): any {
     return AvatarUtils.getAvatarStyle(nombre || '', apellido);
+  }
+
+  // ============== TIMELINE DATA ==============
+  
+  /**
+   * Build timeline items from consultations and exams
+   */
+  get timelineItems(): TimelineItem[] {
+    if (!this.ficha) return [];
+    
+    const items: TimelineItem[] = [];
+    
+    // Add consultations to timeline
+    this.ficha.consultas.forEach(consulta => {
+      items.push({
+        id: consulta.id,
+        title: `Consulta - ${consulta.motivo || 'Revisión general'}`,
+        description: consulta.observaciones || consulta.tratamiento || undefined,
+        date: consulta.fecha,
+        type: 'consultation',
+        icon: 'medical-outline',
+        color: 'primary',
+        metadata: {
+          tratamiento: consulta.tratamiento || 'No especificado'
+        }
+      });
+    });
+    
+    // Add exam orders to timeline
+    this.ficha.examenes.forEach(examen => {
+      const primerExamen = examen.examenes && examen.examenes.length > 0 
+        ? examen.examenes[0].nombreExamen 
+        : 'Laboratorio';
+      
+      items.push({
+        id: examen.id,
+        title: `Examen - ${primerExamen}`,
+        description: `${examen.examenes?.length || 0} examen(es) solicitado(s)`,
+        date: examen.fecha,
+        type: 'exam',
+        icon: 'flask-outline',
+        color: examen.estado === 'realizado' ? 'success' : 'warning',
+        metadata: {
+          resultado: examen.estado === 'realizado' ? 'Completado' : 'Pendiente'
+        }
+      });
+    });
+    
+    // Sort by date (most recent first)
+    return items.sort((a, b) => {
+      const dateA = a.date instanceof Timestamp ? a.date.toDate() : a.date;
+      const dateB = b.date instanceof Timestamp ? b.date.toDate() : b.date;
+      return dateB.getTime() - dateA.getTime();
+    });
   }
 
   // ============== NOTAS RÁPIDAS ==============

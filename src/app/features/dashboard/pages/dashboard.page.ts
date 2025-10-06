@@ -14,6 +14,8 @@ import {
   AccionRapida 
 } from '../data/dashboard.service';
 import { Subscription } from 'rxjs';
+import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
+import { AvatarUtils } from '../../../shared/utils/avatar.utils';
 
 /**
  * Interface for stat cards displayed on dashboard
@@ -23,7 +25,7 @@ interface StatCard {
   value: number | string;
   sub: string;
   icon: string;
-  color?: string;
+  color?: 'primary' | 'success' | 'warning' | 'danger' | 'secondary';
 }
 
 @Component({
@@ -33,7 +35,8 @@ interface StatCard {
     IonContent, IonGrid, IonRow, IonCol,
     IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
     IonIcon, IonAvatar, IonSpinner, IonToast,
-    NgFor, NgClass, NgIf, DatePipe, UpperCasePipe
+    NgFor, NgClass, NgIf, DatePipe, UpperCasePipe,
+    StatCardComponent
   ],
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss']
@@ -262,5 +265,29 @@ export class DashboardPage implements OnInit, OnDestroy {
   formatAlertaFecha(fecha: Date | Timestamp): Date {
     return fecha instanceof Date ? fecha : fecha.toDate();
   }
+  
+  /**
+   * Get patient initials for avatar
+   */
+  getInitials(nombre?: string): string {
+    if (!nombre) return '??';
+    const parts = nombre.trim().split(/\s+/);
+    return AvatarUtils.getInitials(parts[0], parts[parts.length - 1]);
+  }
+  
+  /**
+   * Get avatar color for patient
+   */
+  getAvatarColor(nombre?: string): string {
+    return AvatarUtils.getAvatarColor(nombre || '');
+  }
+  
+  /**
+   * Count total critical alerts
+   */
+  getTotalAlertasCriticas(): number {
+    return this.alertas.filter(a => 
+      a.severidad === 'critica' || a.severidad === 'alta'
+    ).length;
+  }
 }
-

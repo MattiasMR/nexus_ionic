@@ -3,6 +3,9 @@
 		<ion-tab-button tab="tab1" [routerLink]="['/tabs/tab1']">
 			<ion-icon name="home-outline"></ion-icon>
 			<ion-label>Inicio</ion-label>
+			<ion-badge *ngIf="alertasCriticasCount > 0" color="danger" class="alert-badge">
+				{{ alertasCriticasCount }}
+			</ion-badge>
 		</ion-tab-button>
 		<ion-tab-button tab="tab2" [routerLink]="['/tabs/tab2']">
 			<ion-icon name="people-outline"></ion-icon>

@@ -144,72 +144,20 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- SECCIÓN: Evolución Médica -->
-    <ion-card class="section-card">
+    <!-- SECCIÓN: Evolución Médica con Timeline -->
+    <ion-card class="section-card timeline-card">
       <ion-card-header>
         <div class="section-header">
           <ion-icon name="pulse" class="section-icon evolution-icon"></ion-icon>
-          <ion-card-title>Evolución Médica</ion-card-title>
+          <ion-card-title>Historial Médico Completo</ion-card-title>
         </div>
       </ion-card-header>
       
       <ion-card-content>
-        <div class="evolution-timeline">
-          <div 
-            *ngFor="let consulta of ficha?.consultas; let i = index" 
-            class="evolution-item"
-            [class.latest]="i === 0">
-            
-            <div class="evolution-marker">
-              <div class="evolution-dot"></div>
-              <div class="evolution-line" *ngIf="i < (ficha?.consultas?.length || 0) - 1"></div>
-            </div>
-            
-            <div class="evolution-content">
-              <div class="evolution-header">
-                <div class="evolution-date-time">
-                  <span class="evolution-date">{{ formatDate(consulta.fecha) }}</span>
-                  <span class="evolution-time">{{ consulta.hora }}</span>
-                </div>
-                <span class="evolution-specialty">{{ consulta.especialidad }}</span>
-              </div>
-              
-              <div class="evolution-doctor">
-                <ion-icon name="person-circle-outline"></ion-icon>
-                <span>{{ consulta.medico }}</span>
-              </div>
-              
-              <div class="evolution-notes">
-                <p>{{ consulta.observaciones }}</p>
-              </div>
-              
-              <div class="vital-signs">
-                <h5 class="vital-signs-title">
-                  <ion-icon name="heart-outline"></ion-icon>
-                  Signos Vitales
-                </h5>
-                <div class="vital-signs-grid">
-                  <div class="vital-item">
-                    <span class="vital-label">PA:</span>
-                    <span class="vital-value">{{ consulta.signosVitales?.presionArterial || 'N/A' }}</span>
-                  </div>
-                  <div class="vital-item">
-                    <span class="vital-label">FC:</span>
-                    <span class="vital-value">{{ consulta.signosVitales?.frecuenciaCardiaca || 'N/A' }} bpm</span>
-                  </div>
-                  <div class="vital-item">
-                    <span class="vital-label">T°:</span>
-                    <span class="vital-value">{{ consulta.signosVitales?.temperatura || 'N/A' }}°C</span>
-                  </div>
-                  <div class="vital-item">
-                    <span class="vital-label">Peso:</span>
-                    <span class="vital-value">{{ consulta.signosVitales?.peso || 'N/A' }} kg</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <app-timeline 
+          [items]="timelineItems"
+          [emptyMessage]="'No hay consultas o exámenes registrados'">
+        </app-timeline>
       </ion-card-content>
     </ion-card>
 
