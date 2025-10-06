@@ -248,10 +248,10 @@ export class ExamenesService {
     const q = query(
       ref,
       where('idPaciente', '==', pacienteId),
-      orderBy('fechaOrden', 'desc')
+      orderBy('fecha', 'desc')
     );
     return (collectionData(q, { idField: 'id' }) as Observable<OrdenExamen[]>).pipe(
-      take(1) // ✅ Complete after first emission for forkJoin
+      take(1) // Complete after first emission for forkJoin compatibility
     );
   }
 
@@ -264,7 +264,7 @@ export class ExamenesService {
       ref,
       where('idPaciente', '==', pacienteId),
       where('estado', '==', 'pendiente'),
-      orderBy('fechaOrden', 'desc')
+      orderBy('fecha', 'desc')
     );
     return collectionData(q, { idField: 'id' }) as Observable<OrdenExamen[]>;
   }

@@ -6,7 +6,8 @@ import {
   IonHeader, IonToolbar, IonTitle, IonContent, IonBadge, IonButton, 
   IonIcon, IonGrid, IonRow, IonCol, IonItem, IonLabel, IonModal, 
   IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
-  IonSpinner, IonToast, ModalController, ToastController, AlertController
+  IonSpinner, IonToast, IonSegment, IonSegmentButton, 
+  ModalController, ToastController, AlertController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { add, create, ban, calendar, time, medical, person, warning, checkmarkCircle } from 'ionicons/icons';
@@ -52,6 +53,7 @@ interface RecetaUI extends Receta {
     IonHeader, IonToolbar, IonTitle, IonContent, IonBadge, IonButton, 
     IonIcon, IonGrid, IonRow, IonCol, IonItem, IonLabel, IonModal, 
     IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
+    IonSpinner, IonSegment, IonSegmentButton,
     CommonModule, FormsModule
   ]
 })
@@ -59,6 +61,8 @@ export class MedicamentosPage implements OnInit, OnDestroy {
   
   // Estados del componente
   medicamentosActuales: RecetaUI[] = [];
+  medicamentosOriginales: RecetaUI[] = []; // Store all medications
+  selectedTab: 'activos' | 'completados' = 'activos'; // Tab selection
   isLoading = false;
   error: string | null = null;
   patientId: string | null = null;
@@ -172,12 +176,13 @@ export class MedicamentosPage implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
     
-    // Get active prescriptions (last 90 days)
+    // Get all prescriptions (not just active ones)
     this.subscriptions.push(
-      this.medicamentosService.getRecetasActivas(patientId).subscribe({
+      this.medicamentosService.getRecetasByPaciente(patientId).subscribe({
         next: (recetas) => {
-          this.medicamentosActuales = recetas.map(this.enrichReceta);
-          this.historialMedicacion = [...this.medicamentosActuales];
+          this.medicamentosOriginales = recetas.map(this.enrichReceta);
+          this.historialMedicacion = [...this.medicamentosOriginales];
+          this.filterMedications(); // Apply current tab filter
           this.isLoading = false;
           console.log('Prescriptions loaded:', recetas.length);
         },
@@ -188,6 +193,70 @@ export class MedicamentosPage implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  /**
+   * Filter medications based on selected tab
+   */
+  filterMedications() {
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+    if (this.selectedTab === 'activos') {
+      // Active: prescribed in last 90 days
+      this.medicamentosActuales = this.medicamentosOriginales.filter(med => {
+        const fechaReceta = med.fecha instanceof Timestamp 
+          ? med.fecha.toDate() 
+          : new Date(med.fecha);
+        return fechaReceta >= ninetyDaysAgo;
+      });
+    } else {
+      // Completed: older than 90 days
+      this.medicamentosActuales = this.medicamentosOriginales.filter(med => {
+        const fechaReceta = med.fecha instanceof Timestamp 
+          ? med.fecha.toDate() 
+          : new Date(med.fecha);
+        return fechaReceta < ninetyDaysAgo;
+      });
+    }
+  }
+
+  /**
+   * Handle tab segment change
+   */
+  onTabChange(event: any) {
+    this.selectedTab = event.detail.value;
+    this.filterMedications();
+  }
+
+  /**
+   * Get count of active medications (last 90 days)
+   */
+  get activeMedicationsCount(): number {
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+    return this.medicamentosOriginales.filter(med => {
+      const fechaReceta = med.fecha instanceof Timestamp 
+        ? med.fecha.toDate() 
+        : new Date(med.fecha);
+      return fechaReceta >= ninetyDaysAgo;
+    }).length;
+  }
+
+  /**
+   * Get count of completed medications (older than 90 days)
+   */
+  get completedMedicationsCount(): number {
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+    return this.medicamentosOriginales.filter(med => {
+      const fechaReceta = med.fecha instanceof Timestamp 
+        ? med.fecha.toDate() 
+        : new Date(med.fecha);
+      return fechaReceta < ninetyDaysAgo;
+    }).length;
   }
 
   /**

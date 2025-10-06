@@ -33,7 +33,7 @@ interface StatCard {
   standalone: true,
   imports: [
     IonContent, IonGrid, IonRow, IonCol,
-    IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
+    IonCardContent,
     IonIcon, IonAvatar, IonSpinner, IonToast,
     NgFor, NgClass, NgIf, DatePipe, UpperCasePipe,
     StatCardComponent

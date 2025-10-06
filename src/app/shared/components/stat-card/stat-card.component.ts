@@ -9,7 +9,7 @@ import { IonIcon, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle } from '
 @Component({
   selector: 'app-stat-card',
   standalone: true,
-  imports: [CommonModule, IonIcon, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle],
+  imports: [CommonModule, IonIcon],
   template: `
     <div class="stat-card-enhanced" [ngClass]="'stat-card-' + color">
       <div class="stat-card-header">

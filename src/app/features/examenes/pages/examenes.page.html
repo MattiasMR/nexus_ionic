@@ -9,6 +9,7 @@
       <h1 class="examenes-title">
         <ion-icon name="flask"></ion-icon>
         Exámenes del Paciente
+        <span *ngIf="paciente" class="patient-name">- {{ paciente.nombre }} {{ paciente.apellido }}</span>
       </h1>
       
       <ion-button color="primary" (click)="openCreateModal()">
@@ -16,24 +17,81 @@
         Nueva Orden
       </ion-button>
     </div>
+
+    <!-- Loading state -->
+    <div *ngIf="isLoading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Cargando exámenes...</p>
+    </div>
+
+    <!-- Error state -->
+    <div *ngIf="error && !isLoading" class="error-container">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <p>{{ error }}</p>
+      <ion-button (click)="refreshExams()" fill="outline" color="primary">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Reintentar
+      </ion-button>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="!isLoading && !error && examenes.length === 0" class="empty-state">
+      <ion-icon name="flask-outline"></ion-icon>
+      <h3>No hay exámenes registrados</h3>
+      <p>Usa el botón "Nueva Orden" en la parte superior para crear una orden de examen</p>
+    </div>
     
-    <div class="examenes-list">
-      <ion-card *ngFor="let examen of examenes" class="examen-card">
+    <!-- Exams list -->
+    <div class="examenes-list" *ngIf="!isLoading && !error && examenes.length > 0">
+      <ion-card *ngFor="let examen of examenes" class="examen-card" [class.examen-critico]="examen.criticidad === 'critico'">
         <ion-card-header>
-          <ion-card-title>{{ examen.nombre }}</ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <div class="examen-info-row">
-            <span class="examen-date">Fecha: {{ examen.fecha }}</span>
+          <div class="card-header-row">
+            <ion-card-title>{{ examen.examenesPrincipales || 'Sin nombre' }}</ion-card-title>
             <ion-badge [color]="getBadgeColor(examen.estado)">
               {{ getBadgeText(examen.estado) }}
             </ion-badge>
           </div>
-          <div class="examen-resultado">
-            <strong>Resultado:</strong> {{ examen.resultado }}
+        </ion-card-header>
+        <ion-card-content>
+          <div class="examen-info-row">
+            <div class="info-item">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span>{{ formatDate(examen.fecha) }}</span>
+            </div>
+            <div class="info-item" *ngIf="examen.examenes && examen.examenes.length > 0">
+              <ion-icon name="flask"></ion-icon>
+              <span>{{ examen.examenes.length }} examen(es)</span>
+            </div>
           </div>
-          <div class="examen-detalle">
-            <strong>Detalle:</strong> {{ examen.detalle }}
+
+          <!-- Display all exams in the order -->
+          <div class="examenes-detalle" *ngIf="examen.examenes && examen.examenes.length > 0">
+            <div class="examen-item" *ngFor="let ex of examen.examenes; let i = index">
+              <div class="examen-item-header">
+                <strong>{{ i + 1 }}. {{ ex.nombreExamen }}</strong>
+              </div>
+              <div class="examen-item-content" *ngIf="ex.resultado">
+                <span class="label">Resultado:</span>
+                <span class="value">{{ ex.resultado }}</span>
+              </div>
+              <div class="examen-item-content" *ngIf="ex.fechaResultado">
+                <span class="label">Fecha resultado:</span>
+                <span class="value">{{ formatDate(ex.fechaResultado) }}</span>
+              </div>
+              <div class="documentos-list" *ngIf="ex.documentos && ex.documentos.length > 0">
+                <div class="documento-item" *ngFor="let doc of ex.documentos">
+                  <ion-icon name="document-outline"></ion-icon>
+                  <span>{{ doc.nombre }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="examen-actions">
+            <ion-button fill="clear" size="small" (click)="verDetalle(examen)">
+              <ion-icon name="eye-outline" slot="start"></ion-icon>
+              Ver Detalle
+            </ion-button>
           </div>
         </ion-card-content>
       </ion-card>

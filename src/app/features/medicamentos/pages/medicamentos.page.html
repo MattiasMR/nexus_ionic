@@ -23,13 +23,70 @@
           <ion-icon name="medical"></ion-icon>
         </div>
         <div class="titles">
-          <h2>Medicación Actual</h2>
+          <h2>Medicación del Paciente</h2>
         </div>
       </div>
     </div>
 
+    <!-- Tab Segmentation: Active vs Completed -->
+    <div class="tabs-container">
+      <ion-segment [value]="selectedTab" (ionChange)="onTabChange($event)">
+        <ion-segment-button value="activos">
+          <ion-label>
+            <ion-icon name="medical"></ion-icon>
+            <span>Activos</span>
+            <ion-badge *ngIf="activeMedicationsCount > 0" color="primary">
+              {{ activeMedicationsCount }}
+            </ion-badge>
+          </ion-label>
+        </ion-segment-button>
+        
+        <ion-segment-button value="completados">
+          <ion-label>
+            <ion-icon name="checkmark-circle"></ion-icon>
+            <span>Completados</span>
+            <ion-badge *ngIf="completedMedicationsCount > 0" color="success">
+              {{ completedMedicationsCount }}
+            </ion-badge>
+          </ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
     <!-- Lista de Medicamentos -->
     <div class="medicamentos-list">
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-container">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Cargando medicamentos...</p>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="error && !isLoading" class="error-container">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <p>{{ error }}</p>
+        <ion-button *ngIf="patientId" (click)="loadMedications(patientId)">Reintentar</ion-button>
+      </div>
+
+      <!-- Empty State - Active Tab -->
+      <div *ngIf="!isLoading && !error && medicamentosActuales.length === 0 && selectedTab === 'activos'" class="empty-state">
+        <ion-icon name="medical-outline"></ion-icon>
+        <h3>No hay medicamentos activos</h3>
+        <p>Este paciente no tiene medicamentos prescritos en los últimos 90 días.</p>
+        <ion-button (click)="abrirModalNuevoMedicamento()">
+          <ion-icon name="add" slot="start"></ion-icon>
+          Agregar Medicamento
+        </ion-button>
+      </div>
+
+      <!-- Empty State - Completed Tab -->
+      <div *ngIf="!isLoading && !error && medicamentosActuales.length === 0 && selectedTab === 'completados'" class="empty-state">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <h3>No hay medicamentos completados</h3>
+        <p>No hay tratamientos finalizados registrados.</p>
+      </div>
+
+      <!-- Medication Cards -->
       @for (medicamento of medicamentosActuales; track medicamento.id) {
         <div class="medicamento-card">
           <div class="medicamento-header">

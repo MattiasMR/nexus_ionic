@@ -46,7 +46,7 @@ interface OrdenExamenUI extends OrdenExamen {
   standalone: true,
   imports: [
     IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
-    IonIcon, IonButton, IonBadge,
+    IonIcon, IonButton, IonBadge, IonSpinner,
     CommonModule, FormsModule
   ]
 })
@@ -67,6 +67,7 @@ export class ExamenesPage implements OnInit, OnDestroy {
   examenesCatalogo: Examen[] = [];
   
   private subscriptions: Subscription[] = [];
+  private examSubscription: Subscription | null = null;
 
   constructor(
     private router: Router,
@@ -135,20 +136,28 @@ export class ExamenesPage implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
     
-    this.subscriptions.push(
-      this.examenesService.getOrdenesByPaciente(patientId).subscribe({
-        next: (ordenes) => {
-          this.examenes = ordenes.map(this.enrichOrdenExamen);
-          this.isLoading = false;
-          console.log('Exam orders loaded:', ordenes.length);
-        },
-        error: (error) => {
-          console.error('Error loading exams:', error);
-          this.error = 'Error al cargar los exámenes';
-          this.isLoading = false;
-        }
-      })
-    );
+    // Unsubscribe from previous exam subscription if exists
+    if (this.examSubscription) {
+      this.examSubscription.unsubscribe();
+    }
+    
+    this.examSubscription = this.examenesService.getOrdenesByPaciente(patientId).subscribe({
+      next: (ordenes) => {
+        this.examenes = ordenes.map(this.enrichOrdenExamen);
+        this.isLoading = false;
+        console.log('Exam orders loaded:', ordenes.length);
+      },
+      error: (error) => {
+        console.error('Error loading exams:', error);
+        this.error = 'Error al cargar los exámenes';
+        this.isLoading = false;
+      }
+    });
+    
+    // Add to subscriptions array for cleanup
+    if (this.examSubscription) {
+      this.subscriptions.push(this.examSubscription);
+    }
   }
 
   /**

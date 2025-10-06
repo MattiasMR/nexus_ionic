@@ -1,5 +1,28 @@
 # Nexus - Medical Records System (Ionic/Angular/Firebase)
 
+## 🚨 CURRENT PROJECT STATUS (Updated: October 6, 2025)
+**Progress:** ~65% Complete | **See:** `PROJECT_STATUS.md` for detailed breakdown
+
+### ✅ Working Features:
+- Dashboard (Tab 1) - Fully functional
+- Patient List (Tab 2) - Working (filter button pending)
+- Ficha Médica (Tab 3) - Core display working (some edit/create issues)
+- Medications (Tab 4) - Display working (create/back button pending)
+- Exams (Tab 5) - Display working (create modal not saving)
+
+### 🔴 Critical Bugs to Fix:
+1. **Nueva Consulta modal freezes app** (Tab 3)
+2. **Nueva Orden de Examen not saving** (Tab 5)
+3. **Editar Datos Personales UI broken** (Tab 3)
+4. **Agregar Nota does nothing** (Tab 3)
+5. **Agregar Medicamento/Indicación buttons do nothing** (Tab 4)
+6. **Missing back button in medications page** (Tab 4)
+
+### 📋 Next Session Priorities:
+See `PROJECT_STATUS.md` Section: "IMMEDIATE ACTION ITEMS FOR NEXT SESSION"
+
+---
+
 ## Project Overview
 Nexus is a medical records management system built with **Ionic 8 + Angular 20 (standalone)** and **Firebase Firestore**. The app uses a tab-based architecture to manage patients, consultations, medications, and medical exams.
 
