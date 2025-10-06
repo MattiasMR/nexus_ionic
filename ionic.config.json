@@ -1,0 +1,7 @@
+{
+  "name": "nexus",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
