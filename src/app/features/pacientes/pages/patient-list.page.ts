@@ -18,6 +18,7 @@ import { Paciente } from '../../../models/paciente.model';
 import { Subscription } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 import { AvatarUtils } from '../../../shared/utils/avatar.utils';
+import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 
 /**
  * UI-friendly patient display interface with calculated fields
@@ -46,7 +47,9 @@ interface PacienteUI extends Paciente {
     IonIcon, IonBadge,
     IonModal,
     // Angular
-    FormsModule, NgFor, NgClass, NgIf, CommonModule
+    FormsModule, NgFor, NgClass, NgIf, CommonModule,
+    // Shared components
+    SkeletonLoaderComponent
   ],
   templateUrl: './patient-list.page.html',
   styleUrls: ['./patient-list.page.scss'],

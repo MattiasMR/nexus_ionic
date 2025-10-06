@@ -9,8 +9,13 @@
       
       <div class="header-title-row">
         <div class="header-title">
-          <ion-icon name="document-text" class="header-icon"></ion-icon>
-          <h1>Ficha Médica - {{ ficha?.datosPersonales?.nombres }} {{ ficha?.datosPersonales?.apellidos }}</h1>
+          <div class="patient-avatar" [style.background-color]="getAvatarColor(ficha?.datosPersonales?.nombres, ficha?.datosPersonales?.apellidos)">
+            {{ getInitials(ficha?.datosPersonales?.nombres, ficha?.datosPersonales?.apellidos) }}
+          </div>
+          <div class="header-text">
+            <h1>{{ ficha?.datosPersonales?.nombres }} {{ ficha?.datosPersonales?.apellidos }}</h1>
+            <p class="patient-rut">{{ ficha?.datosPersonales?.rut }}</p>
+          </div>
         </div>
         
         <div class="header-actions">

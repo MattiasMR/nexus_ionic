@@ -52,6 +52,13 @@
       </button>
     </div>
 
+    <!-- Loading Skeletons -->
+    <div *ngIf="isLoading">
+      <app-skeleton-loader type="patient-card"></app-skeleton-loader>
+      <app-skeleton-loader type="patient-card"></app-skeleton-loader>
+      <app-skeleton-loader type="patient-card"></app-skeleton-loader>
+    </div>
+
     <!-- Empty State: No patients -->
     <div class="empty-state" *ngIf="!isLoading && filtered.length === 0 && !query">
       <div class="empty-icon">

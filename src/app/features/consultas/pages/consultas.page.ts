@@ -518,6 +518,29 @@ export class ConsultasPage implements OnInit, OnDestroy {
   clearError() {
     this.error = null;
   }
+  
+  // ============== AVATAR UTILITIES ==============
+  
+  /**
+   * Get initials for patient avatar
+   */
+  getInitials(nombre?: string, apellido?: string): string {
+    return AvatarUtils.getInitials(nombre || '', apellido);
+  }
+  
+  /**
+   * Get avatar color for patient
+   */
+  getAvatarColor(nombre?: string, apellido?: string): string {
+    return AvatarUtils.getAvatarColor(`${nombre || ''} ${apellido || ''}`);
+  }
+  
+  /**
+   * Get avatar style object
+   */
+  getAvatarStyle(nombre?: string, apellido?: string): any {
+    return AvatarUtils.getAvatarStyle(nombre || '', apellido);
+  }
 
   // ============== NOTAS RÁPIDAS ==============
   async guardarNota() {
