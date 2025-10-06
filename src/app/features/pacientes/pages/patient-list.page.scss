@@ -103,14 +103,34 @@
 .dx-title ion-icon { font-size: 18px; color: #2a5ea8; }
 .dx-body { color: #1e4069; }
 
-.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .foot-left { display: grid; row-gap: 6px; }
 .foot-line { display: flex; align-items: center; gap: 8px; color: var(--c-muted); font-size: 13px; }
 .foot-line ion-icon { font-size: 16px; color: #7aa2d6; }
 
+.foot-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--c-primary-300), var(--c-primary-600)); color: #fff; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(31,136,255,.18); transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; }
 .cta ion-icon { font-size: 18px; color: #fff; }
 .cta:hover { transform: translateY(-1px); box-shadow: var(--elev-2); filter: saturate(1.04); }
+
+.cta.outline {
+  background: transparent;
+  color: var(--c-primary-600);
+  border: 2px solid var(--c-primary-400);
+  box-shadow: none;
+}
+.cta.outline ion-icon {
+  color: var(--c-primary-600);
+}
+.cta.outline:hover {
+  background: var(--c-primary-50);
+  box-shadow: 0 4px 12px rgba(31,136,255,.12);
+}
 
 /* ---------- MODAL – LIGHT THEME (fondo sólido, título legible) ---------- */
 
@@ -123,6 +143,7 @@
 /* CONTENEDOR del modal */
 .create-modal::part(content) {
   --height: auto;
+  --max-height: 85vh;
   --width: 95%;
   --max-width: 720px;
   --border-radius: 16px;
@@ -197,7 +218,71 @@
 .modal-head .close:hover { background: #f1f6ff; }
 
 /* Contenido del formulario: inputs blancos y bordes suaves */
-.form { padding: 16px 18px 20px; display: grid; row-gap: 12px; }
+.form { 
+  padding: 16px 18px 20px; 
+  display: grid; 
+  row-gap: 12px; 
+  max-height: calc(85vh - 140px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 24px; /* Extra space at bottom */
+}
+
+.form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.form::-webkit-scrollbar-track {
+  background: #f1f6ff;
+  border-radius: 10px;
+}
+
+.form::-webkit-scrollbar-thumb {
+  background: #b3d4ff;
+  border-radius: 10px;
+}
+
+.form::-webkit-scrollbar-thumb:hover {
+  background: #7aa2d6;
+}
+
+/* Error styling for fields */
+.field-error {
+  border: 2px solid #e53935 !important;
+  background: #ffebee !important;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ffebee;
+  border: 1px solid #ef5350;
+  border-radius: 8px;
+  color: #c62828;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: -8px;
+  animation: slideDown 0.2s ease;
+}
+
+.error-message ion-icon {
+  font-size: 18px;
+  color: #e53935;
+  flex-shrink: 0;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .fi {
   --background: #ffffff !important;
@@ -205,16 +290,69 @@
   border: 1px solid #e1ecff;
   border-radius: 12px;
   padding: 6px 8px;
+  min-height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
-.fi ion-icon { margin-right: 8px; color: #7aa2d6; }
-.fi::part(native) { --padding-start: 0; --background: #ffffff; color: #0f1c2e; }
+.fi ion-icon { 
+  margin-right: 8px; 
+  color: #7aa2d6; 
+  flex-shrink: 0;
+  align-self: center;
+}
+.fi::part(native) { 
+  --padding-start: 0; 
+  --background: #ffffff; 
+  color: #0f1c2e; 
+  min-height: 34px; 
+}
 .fi ion-input, .fi ion-textarea, .fi ion-select {
   --background: #ffffff;
   --color: #0f1c2e;
   --placeholder-color: #9bb6da;
+  min-height: 34px;
+  flex-shrink: 0;
 }
 
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Date field styling */
+.fi.date-field {
+  flex-direction: row;
+  align-items: center;
+}
+.fi.date-field ion-icon {
+  align-self: center;
+  margin-top: 0;
+}
+.date-input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.date-label {
+  font-size: 11px;
+  color: #7aa2d6;
+  font-weight: 600;
+  margin: 0;
+  padding: 0;
+}
+.date-input-wrapper ion-input {
+  --padding-top: 2px;
+  --padding-bottom: 2px;
+}
+
+.row-2 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 12px; 
+  flex-shrink: 0;
+  min-height: 46px;
+}
+
+.row-2 .fi {
+  min-height: 46px;
+}
 
 .actions-row {
   display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;

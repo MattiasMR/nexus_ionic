@@ -4,10 +4,19 @@
       <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
       Volver a Ficha Médica
     </ion-button>
-    <h1 class="examenes-title">
-      <ion-icon name="flask"></ion-icon>
-      Exámenes del Paciente
-    </h1>
+    
+    <div class="header-row">
+      <h1 class="examenes-title">
+        <ion-icon name="flask"></ion-icon>
+        Exámenes del Paciente
+      </h1>
+      
+      <ion-button color="primary" (click)="openCreateModal()">
+        <ion-icon name="add-circle" slot="start"></ion-icon>
+        Nueva Orden
+      </ion-button>
+    </div>
+    
     <div class="examenes-list">
       <ion-card *ngFor="let examen of examenes" class="examen-card">
         <ion-card-header>

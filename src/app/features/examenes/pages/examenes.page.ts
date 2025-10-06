@@ -4,7 +4,8 @@ import {
   IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
   IonIcon, IonButton, IonBadge, IonSpinner, IonToast, IonModal,
   IonHeader, IonToolbar, IonTitle, IonButtons, IonInput, IonTextarea,
-  IonSelect, IonSelectOption, IonDatetime, IonItem, IonLabel
+  IonSelect, IonSelectOption, IonDatetime, IonItem, IonLabel,
+  ModalController, ToastController
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,11 +15,16 @@ import { add, create, eye, calendar, medical, clipboard } from 'ionicons/icons';
 import { Timestamp } from '@angular/fire/firestore';
 
 // Servicios Firestore
-import { ExamenesService } from '../features/examenes/data/examenes.service';
+import { ExamenesService } from '../data/examenes.service';
+import { PacientesService } from '../../pacientes/data/pacientes.service';
+
+// Components
+import { NuevaOrdenExamenModalComponent } from '../components/nueva-orden-examen-modal/nueva-orden-examen-modal.component';
 
 // Modelos
-import { OrdenExamen, ExamenSolicitado } from '../models/orden-examen.model';
-import { Examen } from '../models/examen.model';
+import { OrdenExamen, ExamenSolicitado } from '../../../models/orden-examen.model';
+import { Examen } from '../../../models/examen.model';
+import { Paciente } from '../../../models/paciente.model';
 
 /**
  * UI interface for exam order display with flattened first exam properties
@@ -34,9 +40,9 @@ interface OrdenExamenUI extends OrdenExamen {
 }
 
 @Component({
-  selector: 'app-tab5',
-  templateUrl: './tab5.page.html',
-  styleUrls: ['./tab5.page.scss'],
+  selector: 'app-examenes',
+  templateUrl: './examenes.page.html',
+  styleUrls: ['./examenes.page.scss'],
   standalone: true,
   imports: [
     IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
@@ -44,13 +50,14 @@ interface OrdenExamenUI extends OrdenExamen {
     CommonModule, FormsModule
   ]
 })
-export class Tab5Page implements OnInit, OnDestroy {
+export class ExamenesPage implements OnInit, OnDestroy {
   
   // Estados del componente
   examenes: OrdenExamenUI[] = [];
   isLoading = false;
   error: string | null = null;
   patientId: string | null = null;
+  paciente: Paciente | null = null;
   
   // Modal para crear orden de examen
   isCreateModalOpen = false;
@@ -64,7 +71,10 @@ export class Tab5Page implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private examenesService: ExamenesService
+    private examenesService: ExamenesService,
+    private pacientesService: PacientesService,
+    private modalCtrl: ModalController,
+    private toastCtrl: ToastController
   ) {
     addIcons({ add, create, eye, calendar, medical, clipboard });
   }
@@ -76,6 +86,7 @@ export class Tab5Page implements OnInit, OnDestroy {
         this.patientId = params['patientId'];
         if (this.patientId) {
           this.loadExams(this.patientId);
+          this.loadPacienteData(this.patientId);
         } else {
           this.error = 'No se especificó el ID del paciente';
         }
@@ -84,6 +95,22 @@ export class Tab5Page implements OnInit, OnDestroy {
 
     // Load exam catalog
     this.loadExamenesCatalogo();
+  }
+
+  /**
+   * Load patient data
+   */
+  loadPacienteData(pacienteId: string) {
+    this.subscriptions.push(
+      this.pacientesService.getPacienteById(pacienteId).subscribe({
+        next: (paciente) => {
+          this.paciente = paciente || null;
+        },
+        error: (error) => {
+          console.error('Error loading patient:', error);
+        }
+      })
+    );
   }
 
   ngOnDestroy() {
@@ -159,9 +186,58 @@ export class Tab5Page implements OnInit, OnDestroy {
   }
 
   // ============== CREAR ORDEN DE EXAMEN ==============
-  openCreateModal() {
-    this.newExam = this.blankExamen();
-    this.isCreateModalOpen = true;
+  async openCreateModal() {
+    if (!this.paciente) {
+      await this.showToast('Error: No se pudo cargar la información del paciente', 'danger');
+      return;
+    }
+
+    const modal = await this.modalCtrl.create({
+      component: NuevaOrdenExamenModalComponent,
+      componentProps: {
+        pacienteId: this.paciente.id,
+        pacienteNombre: `${this.paciente.nombre} ${this.paciente.apellido}`
+      }
+    });
+
+    modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'confirm' && data) {
+      await this.guardarOrdenExamen(data);
+    }
+  }
+
+  /**
+   * Save exam order to Firestore
+   */
+  private async guardarOrdenExamen(ordenData: any) {
+    try {
+      const ordenId = await this.examenesService.createOrdenExamen(ordenData);
+      await this.showToast('Orden de examen creada exitosamente', 'success');
+      
+      // Reload exams
+      if (this.patientId) {
+        this.loadExams(this.patientId);
+      }
+    } catch (error) {
+      console.error('Error creating exam order:', error);
+      await this.showToast('Error al crear la orden de examen', 'danger');
+    }
+  }
+
+  /**
+   * Show toast notification
+   */
+  private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    const toast = await this.toastCtrl.create({
+      message,
+      duration: 3000,
+      position: 'top',
+      color
+    });
+    await toast.present();
   }
 
   closeCreateModal() {

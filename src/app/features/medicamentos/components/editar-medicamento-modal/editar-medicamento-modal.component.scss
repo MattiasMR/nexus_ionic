@@ -1,0 +1,73 @@
+.medicamento-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--ion-color-light);
+  border-radius: 12px;
+  background: var(--ion-color-light-tint);
+
+  h3 {
+    margin: 0 0 16px 0;
+    color: var(--ion-color-primary);
+    font-size: 18px;
+    font-weight: 600;
+  }
+}
+
+.form-item {
+  margin-bottom: 16px;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+}
+
+.error-message {
+  color: var(--ion-color-danger);
+  font-size: 12px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+ion-textarea,
+ion-input {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  border: 1px solid var(--ion-color-light);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+ion-textarea.ion-invalid.ion-touched,
+ion-input.ion-invalid.ion-touched {
+  border-color: var(--ion-color-danger);
+}
+
+.button-container {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  padding-bottom: 16px;
+
+  ion-button {
+    flex: 1;
+  }
+}
+
+ion-grid {
+  padding: 0;
+  
+  ion-row {
+    margin: 0;
+  }
+  
+  ion-col {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .button-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

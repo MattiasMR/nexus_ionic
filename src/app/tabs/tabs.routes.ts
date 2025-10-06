@@ -9,27 +9,27 @@ export const routes: Routes = [
       {
         path: 'tab1',
         loadComponent: () =>
-          import('../tab1/tab1.page').then((m) => m.Tab1Page),
+          import('../features/dashboard/pages/dashboard.page').then((m) => m.DashboardPage),
       },
       {
         path: 'tab2',
         loadComponent: () =>
-          import('../tab2/tab2.page').then((m) => m.Tab2Page),
+          import('../features/pacientes/pages/patient-list.page').then((m) => m.PatientListPage),
       },
       {
         path: 'tab3',
         loadComponent: () =>
-          import('../tab3/tab3.page').then((m) => m.Tab3Page),
+          import('../features/consultas/pages/consultas.page').then((m) => m.ConsultasPage),
       },
       {
         path: 'tab4',
         loadComponent: () =>
-          import('../tab4/tab4.page').then((m) => m.Tab4Page),
+          import('../features/medicamentos/pages/medicamentos.page').then((m) => m.MedicamentosPage),
       },
       {
         path: 'tab5',
         loadComponent: () =>
-          import('../tab5/tab5.page').then((m) => m.Tab5Page),
+          import('../features/examenes/pages/examenes.page').then((m) => m.ExamenesPage),
       },
       {
         path: '',

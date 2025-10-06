@@ -1,0 +1,137 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Modificar Medicamento</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form (ngSubmit)="confirm()">
+    <ion-list>
+      @for (medicamento of medicamentos; track $index) {
+        <div class="medicamento-section">
+          <h3>Medicamento {{ $index + 1 }}</h3>
+          
+          <!-- Nombre del Medicamento -->
+          <ion-item class="form-item">
+            <ion-label position="stacked">Nombre del Medicamento *</ion-label>
+            <ion-input
+              [(ngModel)]="medicamento.nombreMedicamento"
+              [name]="'nombre_' + $index"
+              type="text"
+              placeholder="Ej: Enalapril"
+              (ionInput)="updateMedicamento($index, 'nombreMedicamento', $any($event.target).value)"
+              [class.ion-invalid]="formSubmitted && !medicamento.nombreMedicamento.trim()"
+              [class.ion-touched]="formSubmitted">
+            </ion-input>
+            <div class="error-message" *ngIf="formSubmitted && !medicamento.nombreMedicamento.trim()">
+              El nombre es obligatorio
+            </div>
+          </ion-item>
+
+          <ion-grid>
+            <ion-row>
+              <!-- Dosis -->
+              <ion-col size="12" sizeMd="6">
+                <ion-item class="form-item">
+                  <ion-label position="stacked">Dosis *</ion-label>
+                  <ion-input
+                    [(ngModel)]="medicamento.dosis"
+                    [name]="'dosis_' + $index"
+                    type="text"
+                    placeholder="Ej: 10 mg"
+                    (ionInput)="updateMedicamento($index, 'dosis', $any($event.target).value)"
+                    [class.ion-invalid]="formSubmitted && !medicamento.dosis.trim()"
+                    [class.ion-touched]="formSubmitted">
+                  </ion-input>
+                  <div class="error-message" *ngIf="formSubmitted && !medicamento.dosis.trim()">
+                    La dosis es obligatoria
+                  </div>
+                </ion-item>
+              </ion-col>
+
+              <!-- Frecuencia -->
+              <ion-col size="12" sizeMd="6">
+                <ion-item class="form-item">
+                  <ion-label position="stacked">Frecuencia *</ion-label>
+                  <ion-input
+                    [(ngModel)]="medicamento.frecuencia"
+                    [name]="'frecuencia_' + $index"
+                    type="text"
+                    placeholder="Ej: Cada 12 horas"
+                    (ionInput)="updateMedicamento($index, 'frecuencia', $any($event.target).value)"
+                    [class.ion-invalid]="formSubmitted && !medicamento.frecuencia.trim()"
+                    [class.ion-touched]="formSubmitted">
+                  </ion-input>
+                  <div class="error-message" *ngIf="formSubmitted && !medicamento.frecuencia.trim()">
+                    La frecuencia es obligatoria
+                  </div>
+                </ion-item>
+              </ion-col>
+
+              <!-- Duración -->
+              <ion-col size="12" sizeMd="6">
+                <ion-item class="form-item">
+                  <ion-label position="stacked">Duración *</ion-label>
+                  <ion-input
+                    [(ngModel)]="medicamento.duracion"
+                    [name]="'duracion_' + $index"
+                    type="text"
+                    placeholder="Ej: 30 días"
+                    (ionInput)="updateMedicamento($index, 'duracion', $any($event.target).value)"
+                    [class.ion-invalid]="formSubmitted && !medicamento.duracion.trim()"
+                    [class.ion-touched]="formSubmitted">
+                  </ion-input>
+                  <div class="error-message" *ngIf="formSubmitted && !medicamento.duracion.trim()">
+                    La duración es obligatoria
+                  </div>
+                </ion-item>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+
+          <!-- Indicaciones -->
+          <ion-item class="form-item">
+            <ion-label position="stacked">Indicaciones</ion-label>
+            <ion-textarea
+              [(ngModel)]="medicamento.indicaciones"
+              [name]="'indicaciones_' + $index"
+              placeholder="Instrucciones especiales..."
+              rows="2"
+              (ionInput)="updateMedicamento($index, 'indicaciones', $any($event.target).value)">
+            </ion-textarea>
+          </ion-item>
+        </div>
+      }
+    </ion-list>
+
+    <!-- Observaciones Generales -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Observaciones Generales</ion-label>
+      <ion-textarea
+        [(ngModel)]="observaciones"
+        name="observaciones"
+        placeholder="Notas adicionales sobre la prescripción..."
+        rows="3">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Action Buttons -->
+    <div class="button-container">
+      <ion-button expand="block" color="medium" fill="outline" (click)="cancel()">
+        Cancelar
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        type="submit"
+        [disabled]="!isFormValid()">
+        <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+        Guardar Cambios
+      </ion-button>
+    </div>
+  </form>
+</ion-content>

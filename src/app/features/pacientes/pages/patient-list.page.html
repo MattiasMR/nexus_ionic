@@ -101,10 +101,17 @@
               </div>
             </div>
 
-            <button class="cta" (click)="verFicha(p)">
-              <ion-icon name="eye-outline"></ion-icon>
-              <span>Ver Ficha</span>
-            </button>
+            <div class="foot-actions">
+              <button class="cta outline" (click)="openEdit(p)">
+                <ion-icon name="create-outline"></ion-icon>
+                <span>Editar</span>
+              </button>
+              
+              <button class="cta" (click)="verFicha(p)">
+                <ion-icon name="eye-outline"></ion-icon>
+                <span>Ver Ficha</span>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -118,11 +125,11 @@
           <div class="modal-head">
             <div class="modal-title">
               <div class="title-icon">
-                <ion-icon name="add-outline"></ion-icon>
+                <ion-icon [name]="isEditMode ? 'create-outline' : 'add-outline'"></ion-icon>
               </div>
               <div>
-                <h3>Nuevo Paciente</h3>
-                <p>Completa los datos principales del paciente</p>
+                <h3>{{ isEditMode ? 'Editar Paciente' : 'Nuevo Paciente' }}</h3>
+                <p>{{ isEditMode ? 'Actualiza los datos del paciente' : 'Completa los datos principales del paciente' }}</p>
               </div>
             </div>
             <button class="close" (click)="closeCreate()">
@@ -133,7 +140,7 @@
           <div class="form">
             <ion-item lines="none" class="fi">
               <ion-icon name="person-outline"></ion-icon>
-              <ion-input [(ngModel)]="newPaciente.nombres" name="nombres" placeholder="Nombres completos *"></ion-input>
+              <ion-input [(ngModel)]="newPaciente.nombres" name="nombres" placeholder="Nombre *"></ion-input>
             </ion-item>
 
             <ion-item lines="none" class="fi">
@@ -141,20 +148,43 @@
               <ion-input [(ngModel)]="newPaciente.apellidos" name="apellidos" placeholder="Apellidos *"></ion-input>
             </ion-item>
 
-            <ion-item lines="none" class="fi">
+            <ion-item lines="none" class="fi" [class.field-error]="error && error.includes('RUT')">
               <ion-icon name="id-card-outline"></ion-icon>
-              <ion-input [(ngModel)]="newPaciente.documento" name="documento" placeholder="Documento *"></ion-input>
+              <ion-input 
+                [(ngModel)]="newPaciente.rut" 
+                name="rut" 
+                placeholder="RUT (ej: 12.345.678-9) *"
+                (ionInput)="formatRut($event)"
+                maxlength="12"></ion-input>
             </ion-item>
+            <div class="error-message" *ngIf="error && error.includes('RUT')">
+              <ion-icon name="alert-circle"></ion-icon>
+              {{ error }}
+            </div>
 
             <ion-item lines="none" class="fi">
               <ion-icon name="call-outline"></ion-icon>
-              <ion-input [(ngModel)]="newPaciente.telefono" name="telefono" placeholder="Teléfono *" type="tel"></ion-input>
+              <ion-input 
+                [(ngModel)]="newPaciente.telefono" 
+                name="telefono" 
+                placeholder="Numero sin +56 (ej: 912345678) *" 
+                type="tel"
+                maxlength="9"
+                [class.ion-invalid]="error && error.includes('teléfono')"></ion-input>
             </ion-item>
 
-            <ion-item lines="none" class="fi">
+            <ion-item lines="none" class="fi" [class.field-error]="error && error.includes('email')">
               <ion-icon name="mail-outline"></ion-icon>
-              <ion-input [(ngModel)]="newPaciente.email" name="email" placeholder="Email *" type="email"></ion-input>
+              <ion-input 
+                [(ngModel)]="newPaciente.email" 
+                name="email" 
+                placeholder="Email *" 
+                type="email"></ion-input>
             </ion-item>
+            <div class="error-message" *ngIf="error && error.includes('email')">
+              <ion-icon name="alert-circle"></ion-icon>
+              {{ error }}
+            </div>
 
             <ion-item lines="none" class="fi">
               <ion-icon name="location-outline"></ion-icon>
@@ -162,9 +192,12 @@
             </ion-item>
 
             <div class="row-2">
-              <ion-item lines="none" class="fi">
+              <ion-item lines="none" class="fi date-field">
                 <ion-icon name="calendar-outline"></ion-icon>
-                <ion-input type="date" [(ngModel)]="newPaciente.fechaNacimiento" name="fechaNacimiento" placeholder="Fecha Nacimiento *"></ion-input>
+                <div class="date-input-wrapper">
+                  <label class="date-label">Fecha de nacimiento *</label>
+                  <ion-input type="date" [(ngModel)]="newPaciente.fechaNacimiento" name="fechaNacimiento"></ion-input>
+                </div>
               </ion-item>
 
               <ion-item lines="none" class="fi">
@@ -196,6 +229,20 @@
             </div>
 
             <ion-item lines="none" class="fi">
+              <ion-icon name="water-outline"></ion-icon>
+              <ion-select [(ngModel)]="newPaciente.grupoSanguineo" name="grupoSanguineo" placeholder="Tipo Sanguíneo">
+                <ion-select-option value="A+">A+</ion-select-option>
+                <ion-select-option value="A-">A-</ion-select-option>
+                <ion-select-option value="B+">B+</ion-select-option>
+                <ion-select-option value="B-">B-</ion-select-option>
+                <ion-select-option value="AB+">AB+</ion-select-option>
+                <ion-select-option value="AB-">AB-</ion-select-option>
+                <ion-select-option value="O+">O+</ion-select-option>
+                <ion-select-option value="O-">O-</ion-select-option>
+              </ion-select>
+            </ion-item>
+
+            <ion-item lines="none" class="fi">
               <ion-icon name="pulse-outline"></ion-icon>
               <ion-select [(ngModel)]="newPaciente.estado" name="estado" interface="popover" placeholder="Estado">
                 <ion-select-option value="activo">Activo</ion-select-option>
@@ -205,7 +252,7 @@
 
             <ion-item lines="none" class="fi">
               <ion-icon name="bandage-outline"></ion-icon>
-              <ion-textarea auto-grow required [(ngModel)]="newPaciente.diagnostico" name="diagnostico" placeholder="Diagnóstico principal"></ion-textarea>
+              <ion-textarea auto-grow required [(ngModel)]="newPaciente.diagnostico" name="diagnostico" placeholder="Diagnóstico principal" rows="2"></ion-textarea>
             </ion-item>
 
             <!-- Mostrar errores -->

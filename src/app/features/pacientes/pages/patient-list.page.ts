@@ -12,8 +12,9 @@ import {
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgClass, NgIf } from '@angular/common';
 import { CommonModule } from '@angular/common';
-import { PacientesService } from '../features/pacientes/data/pacientes.service';
-import { Paciente } from '../models/paciente.model';
+import { PacientesService } from '../data/pacientes.service';
+import { FichasMedicasService } from '../../fichas-medicas/data/fichas-medicas.service';
+import { Paciente } from '../../../models/paciente.model';
 import { Subscription } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 
@@ -35,7 +36,7 @@ interface PacienteUI extends Paciente {
 }
 
 @Component({
-  selector: 'app-tab2',
+  selector: 'app-patient-list',
   standalone: true,
   imports: [
     // Ionic usados en el HTML
@@ -46,10 +47,10 @@ interface PacienteUI extends Paciente {
     // Angular
     FormsModule, NgFor, NgClass, NgIf, CommonModule
   ],
-  templateUrl: './tab2.page.html',
-  styleUrls: ['./tab2.page.scss'],
+  templateUrl: './patient-list.page.html',
+  styleUrls: ['./patient-list.page.scss'],
 })
-export class Tab2Page implements OnInit, OnDestroy {
+export class PatientListPage implements OnInit, OnDestroy {
   // Estados del componente
   pacientes: PacienteUI[] = [];
   filteredPacientes: PacienteUI[] = [];
@@ -64,11 +65,15 @@ export class Tab2Page implements OnInit, OnDestroy {
   totalPages = 1;
   totalPatients = 0;
   
+  // Track newly created patient for temporary top sorting
+  private lastCreatedPatientId: string | null = null;
+  
   private subscriptions: Subscription[] = [];
 
   constructor(
     private router: Router,
-    private pacientesService: PacientesService
+    private pacientesService: PacientesService,
+    private fichasMedicasService: FichasMedicasService
   ) {}
 
   ngOnInit() {
@@ -90,6 +95,16 @@ export class Tab2Page implements OnInit, OnDestroy {
       this.pacientesService.getAllPacientes().subscribe({
         next: (pacientes) => {
           this.pacientes = pacientes.map(this.enrichPatient);
+          
+          // If we just created a patient, show it at the top temporarily
+          if (this.lastCreatedPatientId) {
+            this.pacientes.sort((a, b) => {
+              if (a.id === this.lastCreatedPatientId) return -1;
+              if (b.id === this.lastCreatedPatientId) return 1;
+              return 0;
+            });
+          }
+          
           this.filteredPacientes = [...this.pacientes];
           this.totalPatients = this.pacientes.length;
           this.isLoading = false;
@@ -120,7 +135,9 @@ export class Tab2Page implements OnInit, OnDestroy {
       nombres: paciente.nombre,
       apellidos: paciente.apellido,
       documento: paciente.rut,
-      estado: 'activo', // Default, can be extended later
+      estado: (paciente as any).estado || 'activo',
+      diagnostico: (paciente as any).diagnostico || 'Sin diagnóstico registrado',
+      ubicacion: paciente.direccion || 'Sin dirección',
       ultimaVisita: this.formatDate(paciente.updatedAt)
     };
   };
@@ -232,13 +249,46 @@ export class Tab2Page implements OnInit, OnDestroy {
   // ============== CREAR PACIENTE (Modal) ==============
   isCreateOpen = false;
   newPaciente: any = {}; // Use any for form flexibility
+  isEditMode = false; // Track if modal is in edit or create mode
+  editingPacienteId: string | null = null; // ID of patient being edited
 
   openCreate() {
     console.log('openCreate() llamado');
+    this.isEditMode = false;
+    this.editingPacienteId = null;
     this.newPaciente = this.blankPaciente();
     this.error = null;
     this.isCreateOpen = true;
     console.log('Modal abierto, newPaciente inicializado:', this.newPaciente);
+  }
+
+  /**
+   * Open modal in edit mode with existing patient data
+   */
+  openEdit(paciente: PacienteUI) {
+    console.log('openEdit() llamado con paciente:', paciente);
+    this.isEditMode = true;
+    this.editingPacienteId = paciente.id || null;
+    
+    // Pre-fill form with existing patient data
+    // Map model fields to template fields
+    this.newPaciente = {
+      nombres: paciente.nombre,
+      apellidos: paciente.apellido,
+      rut: paciente.rut,
+      telefono: paciente.telefono,
+      direccion: paciente.direccion,
+      fechaNacimiento: paciente.fechaNacimiento,
+      grupoSanguineo: paciente.grupoSanguineo,
+      email: (paciente as any).email || '',
+      alergias: paciente.alergias?.join(', ') || '',
+      enfermedadesCronicas: paciente.enfermedadesCronicas?.join(', ') || '',
+      contactoEmergencia: (paciente as any).contactoEmergencia || ''
+    };
+    
+    this.error = null;
+    this.isCreateOpen = true;
+    console.log('Modal abierto en modo edición:', this.newPaciente);
   }
   
   closeCreate() { 
@@ -253,8 +303,74 @@ export class Tab2Page implements OnInit, OnDestroy {
     alert('¡El botón responde correctamente!');
   }
 
+  /**
+   * Format RUT as user types
+   */
+  formatRut(event: any) {
+    let value = event.target.value;
+    // Remove all non-numeric characters except K/k
+    value = value.replace(/[^0-9kK]/g, '');
+    
+    if (value.length === 0) {
+      this.newPaciente.rut = '';
+      return;
+    }
+
+    // Format: 12.345.678-9
+    let rut = value.slice(0, -1); // All digits except last
+    let dv = value.slice(-1).toUpperCase(); // Last digit/letter
+
+    // Add dots
+    rut = rut.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+    
+    // Combine with dash
+    const formatted = rut.length > 0 ? `${rut}-${dv}` : dv;
+    
+    this.newPaciente.rut = formatted;
+    event.target.value = formatted;
+  }
+
+  /**
+   * Validate Chilean RUT
+   */
+  validateRut(rut: string): boolean {
+    if (!rut || rut.trim() === '') return false;
+    
+    // Remove formatting
+    const cleanRut = rut.replace(/\./g, '').replace(/-/g, '');
+    
+    // Must be at least 2 characters (number + verifier)
+    if (cleanRut.length < 2) return false;
+    
+    const body = cleanRut.slice(0, -1);
+    const dv = cleanRut.slice(-1).toUpperCase();
+    
+    // Calculate verifier digit
+    let sum = 0;
+    let multiplier = 2;
+    
+    for (let i = body.length - 1; i >= 0; i--) {
+      sum += parseInt(body.charAt(i)) * multiplier;
+      multiplier = multiplier === 7 ? 2 : multiplier + 1;
+    }
+    
+    const expectedDv = 11 - (sum % 11);
+    const dvStr = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : expectedDv.toString();
+    
+    return dv === dvStr;
+  }
+
+  /**
+   * Validate email format
+   */
+  validateEmail(email: string): boolean {
+    if (!email || email.trim() === '') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
   async saveCreate() {
-    console.log('saveCreate() llamado');
+    console.log('saveCreate() llamado, isEditMode:', this.isEditMode);
     console.log('Datos del formulario:', this.newPaciente);
     
     const p = this.newPaciente;
@@ -262,7 +378,7 @@ export class Tab2Page implements OnInit, OnDestroy {
     // Map template fields (plural) to model fields (singular)
     const nombre = p.nombres || p.nombre;
     const apellido = p.apellidos || p.apellido;
-    const rut = p.documento || p.rut;
+    const rut = p.rut || p.documento;
     
     // Validaciones básicas
     if (!nombre?.trim()) {
@@ -274,9 +390,31 @@ export class Tab2Page implements OnInit, OnDestroy {
       return;
     }
     if (!rut?.trim()) {
-      this.error = 'El campo RUT/documento es obligatorio';
+      this.error = 'El campo RUT es obligatorio';
       return;
     }
+    
+    // Validate RUT format
+    if (!this.validateRut(rut)) {
+      this.error = 'El RUT ingresado no es válido';
+      return;
+    }
+    
+    // Validate email
+    if (p.email && !this.validateEmail(p.email)) {
+      this.error = 'El email ingresado no es válido (debe contener @)';
+      return;
+    }
+    
+    // Validate phone (Chilean format: 9 digits)
+    if (p.telefono) {
+      const cleanPhone = p.telefono.replace(/\D/g, '');
+      if (cleanPhone.length !== 9) {
+        this.error = 'El teléfono debe tener exactamente 9 dígitos';
+        return;
+      }
+    }
+    
     if (!p.fechaNacimiento) {
       this.error = 'El campo fecha de nacimiento es obligatorio';
       return;
@@ -286,10 +424,10 @@ export class Tab2Page implements OnInit, OnDestroy {
     this.error = null;
     this.isLoading = true;
     
-    console.log('Validaciones pasadas, creando paciente...');
+    console.log('Validaciones pasadas...');
 
-    // Preparar datos para Firestore (usar nombres del modelo)
-    const nuevoPaciente: Omit<Paciente, 'id'> = {
+    // Preparar datos para Firestore
+    const pacienteData: Partial<Paciente> = {
       nombre: nombre.trim(),
       apellido: apellido.trim(),
       rut: rut.trim(),
@@ -297,36 +435,72 @@ export class Tab2Page implements OnInit, OnDestroy {
         ? Timestamp.fromDate(new Date(p.fechaNacimiento))
         : Timestamp.now(),
       sexo: (p.sexo || p.genero || 'Otro') as 'M' | 'F' | 'Otro',
-      // Required fields
       direccion: p.direccion?.trim() || 'Sin dirección',
       telefono: p.telefono?.trim() || 'Sin teléfono',
-      // Optional fields
-      email: p.email,
-      grupoSanguineo: p.grupoSanguineo,
-      alergias: [],
-      enfermedadesCronicas: [],
-      alertasMedicas: [],
       nombreCompleto: `${nombre.trim()} ${apellido.trim()}`,
-      // Metadata
-      createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };
 
-    console.log('Paciente preparado:', nuevoPaciente);
+    // Add extended fields
+    (pacienteData as any).estado = p.estado || 'activo';
+    (pacienteData as any).diagnostico = p.diagnostico?.trim() || 'Sin diagnóstico registrado';
+
+    // Only add optional fields if they have values
+    if (p.email?.trim()) {
+      pacienteData.email = p.email.trim();
+    }
+    if (p.grupoSanguineo?.trim()) {
+      pacienteData.grupoSanguineo = p.grupoSanguineo.trim();
+    }
+
+    // Only add arrays and createdAt for new patients
+    if (!this.isEditMode) {
+      (pacienteData as any).alergias = [];
+      (pacienteData as any).enfermedadesCronicas = [];
+      (pacienteData as any).alertasMedicas = [];
+      pacienteData.createdAt = Timestamp.now();
+    }
+
+    console.log('Datos preparados:', pacienteData);
 
     try {
-      const docId = await this.pacientesService.createPaciente(nuevoPaciente);
-      console.log('Paciente creado con ID:', docId);
-      
-      // Close modal and refresh list
+      if (this.isEditMode && this.editingPacienteId) {
+        // UPDATE existing patient
+        await this.pacientesService.updatePaciente(this.editingPacienteId, pacienteData);
+        console.log('Paciente actualizado con éxito, ID:', this.editingPacienteId);
+        this.lastCreatedPatientId = null; // Clear temp sort
+      } else {
+        // CREATE new patient
+        const docId = await this.pacientesService.createPaciente(pacienteData as Omit<Paciente, 'id'>);
+        console.log('Paciente creado con éxito, ID:', docId);
+        this.lastCreatedPatientId = docId; // Store for temp sorting
+        
+        // Auto-create ficha medica with patient data
+        console.log('📄 Creando ficha médica para paciente:', docId);
+        await this.fichasMedicasService.createFicha({
+          idPaciente: docId,
+          fechaMedica: Timestamp.now(),
+          observacion: `Ficha médica de ${nombre.trim()} ${apellido.trim()}`,
+          antecedentes: {
+            familiares: '',
+            personales: '',
+            quirurgicos: '',
+            hospitalizaciones: '',
+            alergias: []
+          },
+          totalConsultas: 0
+        });
+        console.log('✅ Ficha médica creada exitosamente');
+      }
+
+      this.loadPatients(); // Reload patient list
       this.closeCreate();
-      this.loadPatients();
-      this.error = null;
+      this.isLoading = false;
       
-      console.log('Paciente creado exitosamente y lista actualizada');
+      console.log('Operación exitosa y lista actualizada');
     } catch (error: any) {
-      console.error('Error al crear paciente:', error);
-      this.error = error?.message || 'Error al crear el paciente';
+      console.error('Error al guardar paciente:', error);
+      this.error = error?.message || 'Error al guardar el paciente';
       this.isLoading = false;
     }
   }
@@ -343,8 +517,7 @@ export class Tab2Page implements OnInit, OnDestroy {
       // Template uses plural forms
       nombres: '',
       apellidos: '',
-      documento: '',
-      tipoDocumento: 'CC',
+      rut: '',
       telefono: '',
       email: '',
       direccion: '',
@@ -355,7 +528,6 @@ export class Tab2Page implements OnInit, OnDestroy {
       // Model uses singular forms
       nombre: '',
       apellido: '',
-      rut: '',
       sexo: 'Otro',
       estado: 'activo',
       diagnostico: '',

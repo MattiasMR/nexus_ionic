@@ -1,0 +1,176 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Nueva Consulta - {{ pacienteNombre }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form (ngSubmit)="confirm()">
+    <!-- Fecha de Consulta -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Fecha de Consulta *</ion-label>
+      <ion-datetime-button datetime="datetime-consulta"></ion-datetime-button>
+      <ion-modal [keepContentsMounted]="true">
+        <ng-template>
+          <ion-datetime 
+            id="datetime-consulta"
+            [(ngModel)]="fechaConsulta"
+            name="fechaConsulta"
+            presentation="date-time"
+            [max]="maxDate"
+            locale="es-CL">
+          </ion-datetime>
+        </ng-template>
+      </ion-modal>
+    </ion-item>
+
+    <!-- Motivo de Consulta -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Motivo de Consulta *</ion-label>
+      <ion-textarea
+        [(ngModel)]="motivoConsulta"
+        name="motivoConsulta"
+        placeholder="Ej: Dolor abdominal, control de presión, seguimiento..."
+        rows="3"
+        [class.ion-invalid]="formSubmitted && !motivoConsulta.trim()"
+        [class.ion-touched]="formSubmitted">
+      </ion-textarea>
+      <div class="error-message" *ngIf="formSubmitted && !motivoConsulta.trim()">
+        El motivo de consulta es obligatorio
+      </div>
+    </ion-item>
+
+    <!-- Diagnóstico -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Diagnóstico</ion-label>
+      <ion-textarea
+        [(ngModel)]="diagnostico"
+        name="diagnostico"
+        placeholder="Ej: Hipertensión arterial esencial, Diabetes tipo 2..."
+        rows="2">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Tratamiento -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Tratamiento</ion-label>
+      <ion-textarea
+        [(ngModel)]="tratamiento"
+        name="tratamiento"
+        placeholder="Ej: Enalapril 10mg cada 12hrs, control en 15 días..."
+        rows="3">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Signos Vitales -->
+    <div class="section-divider">
+      <ion-label>Signos Vitales</ion-label>
+    </div>
+
+    <ion-grid>
+      <ion-row>
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Presión Arterial (mmHg)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.presionArterial"
+              name="presionArterial"
+              type="text"
+              placeholder="Ej: 120/80">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Frecuencia Cardíaca (lpm)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.frecuenciaCardiaca"
+              name="frecuenciaCardiaca"
+              type="number"
+              placeholder="Ej: 72">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Temperatura (°C)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.temperatura"
+              name="temperatura"
+              type="text"
+              placeholder="Ej: 36.5">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Saturación O2 (%)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.saturacionOxigeno"
+              name="saturacionOxigeno"
+              type="number"
+              placeholder="Ej: 98">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Peso (kg)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.peso"
+              name="peso"
+              type="text"
+              placeholder="Ej: 75.5">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+
+        <ion-col size="12" sizeMd="6">
+          <ion-item class="form-item">
+            <ion-label position="stacked">Talla (cm)</ion-label>
+            <ion-input
+              [(ngModel)]="signosVitales.talla"
+              name="talla"
+              type="text"
+              placeholder="Ej: 170">
+            </ion-input>
+          </ion-item>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+
+    <!-- Observaciones -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Observaciones</ion-label>
+      <ion-textarea
+        [(ngModel)]="observaciones"
+        name="observaciones"
+        placeholder="Notas adicionales..."
+        rows="2">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Action Buttons -->
+    <div class="button-container">
+      <ion-button expand="block" color="medium" fill="outline" (click)="cancel()">
+        Cancelar
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        type="submit"
+        [disabled]="!isFormValid()">
+        <ion-icon name="add-circle" slot="start"></ion-icon>
+        Guardar Consulta
+      </ion-button>
+    </div>
+  </form>
+</ion-content>

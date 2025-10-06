@@ -1,0 +1,90 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Nueva Orden de Examen - {{ pacienteNombre }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form (ngSubmit)="confirm()">
+    <!-- Fecha de Solicitud -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Fecha de Solicitud *</ion-label>
+      <ion-datetime-button datetime="datetime-solicitud"></ion-datetime-button>
+      <ion-modal [keepContentsMounted]="true">
+        <ng-template>
+          <ion-datetime 
+            id="datetime-solicitud"
+            [(ngModel)]="fechaSolicitud"
+            name="fechaSolicitud"
+            presentation="date-time"
+            [max]="maxDate"
+            locale="es-CL">
+          </ion-datetime>
+        </ng-template>
+      </ion-modal>
+    </ion-item>
+
+    <!-- Tipo de Examen -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Tipo de Examen *</ion-label>
+      <ion-select 
+        [(ngModel)]="tipoExamen"
+        name="tipoExamen"
+        placeholder="Seleccione un examen"
+        [class.ion-invalid]="formSubmitted && !tipoExamen.trim()"
+        [class.ion-touched]="formSubmitted">
+        <ion-select-option *ngFor="let examen of examenesComunes" [value]="examen.value">
+          {{ examen.label }}
+        </ion-select-option>
+      </ion-select>
+      <div class="error-message" *ngIf="formSubmitted && !tipoExamen.trim()">
+        Debe seleccionar un tipo de examen
+      </div>
+    </ion-item>
+
+    <!-- Urgencia -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Urgencia *</ion-label>
+      <ion-select [(ngModel)]="urgencia" name="urgencia">
+        <ion-select-option value="normal">Normal</ion-select-option>
+        <ion-select-option value="urgente">Urgente</ion-select-option>
+        <ion-select-option value="emergencia">Emergencia</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <!-- Indicaciones Clínicas -->
+    <ion-item class="form-item">
+      <ion-label position="stacked">Indicaciones Clínicas *</ion-label>
+      <ion-textarea
+        [(ngModel)]="indicacionesClinicas"
+        name="indicacionesClinicas"
+        placeholder="Motivo de la solicitud, síntomas relevantes, hipótesis diagnóstica..."
+        rows="4"
+        [class.ion-invalid]="formSubmitted && !indicacionesClinicas.trim()"
+        [class.ion-touched]="formSubmitted">
+      </ion-textarea>
+      <div class="error-message" *ngIf="formSubmitted && !indicacionesClinicas.trim()">
+        Las indicaciones clínicas son obligatorias
+      </div>
+    </ion-item>
+
+    <!-- Action Buttons -->
+    <div class="button-container">
+      <ion-button expand="block" color="medium" fill="outline" (click)="cancel()">
+        Cancelar
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        type="submit"
+        [disabled]="!isFormValid()">
+        <ion-icon name="add-circle" slot="start"></ion-icon>
+        Crear Orden
+      </ion-button>
+    </div>
+  </form>
+</ion-content>

@@ -4,7 +4,8 @@ import {
   IonHeader, IonToolbar, IonTitle, IonContent, IonIcon, IonButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonBadge, IonGrid, IonRow, IonCol, IonList, IonItem, IonLabel,
-  IonTextarea, IonTabs, IonTabButton, IonSpinner, IonToast
+  IonTextarea, IonTabs, IonTabButton, IonSpinner, IonToast,
+  ModalController, ToastController
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,16 +13,19 @@ import { Subscription, forkJoin } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 
 // Servicios Firestore
-import { PacientesService } from '../features/pacientes/data/pacientes.service';
-import { FichasMedicasService } from '../features/fichas-medicas/data/fichas-medicas.service';
-import { ConsultasService } from '../features/consultas/data/consultas.service';
-import { ExamenesService } from '../features/examenes/data/examenes.service';
+import { PacientesService } from '../../pacientes/data/pacientes.service';
+import { FichasMedicasService } from '../../fichas-medicas/data/fichas-medicas.service';
+import { ConsultasService } from '../data/consultas.service';
+import { ExamenesService } from '../../examenes/data/examenes.service';
+
+// Components
+import { NuevaConsultaModalComponent } from '../components/nueva-consulta-modal/nueva-consulta-modal.component';
 
 // Modelos
-import { Paciente } from '../models/paciente.model';
-import { FichaMedica } from '../models/ficha-medica.model';
-import { Consulta } from '../models/consulta.model';
-import { OrdenExamen } from '../models/orden-examen.model';
+import { Paciente } from '../../../models/paciente.model';
+import { FichaMedica } from '../../../models/ficha-medica.model';
+import { Consulta } from '../../../models/consulta.model';
+import { OrdenExamen } from '../../../models/orden-examen.model';
 
 /**
  * UI interface for medical record display
@@ -76,9 +80,9 @@ interface OrdenExamenUI extends OrdenExamen {
 }
 
 @Component({
-  selector: 'app-tab3',
-  templateUrl: 'tab3.page.html',
-  styleUrls: ['tab3.page.scss'],
+  selector: 'app-consultas',
+  templateUrl: './consultas.page.html',
+  styleUrls: ['./consultas.page.scss'],
   standalone: true,
   imports: [
     IonContent, IonIcon, IonButton,
@@ -87,7 +91,7 @@ interface OrdenExamenUI extends OrdenExamen {
     IonTextarea, CommonModule, FormsModule
   ],
 })
-export class Tab3Page implements OnInit, OnDestroy {
+export class ConsultasPage implements OnInit, OnDestroy {
   
   // Estados del componente
   ficha: FichaMedicaUI | null = null;
@@ -108,7 +112,9 @@ export class Tab3Page implements OnInit, OnDestroy {
     private pacientesService: PacientesService,
     private fichasMedicasService: FichasMedicasService,
     private consultasService: ConsultasService,
-    private examenesService: ExamenesService
+    private examenesService: ExamenesService,
+    private modalCtrl: ModalController,
+    private toastCtrl: ToastController
   ) {}
 
   ngOnInit() {
@@ -251,6 +257,17 @@ export class Tab3Page implements OnInit, OnDestroy {
     this.router.navigateByUrl('/tabs/tab2');
   }
 
+  /**
+   * Navigate to patient edit page
+   */
+  editarDatosPersonales() {
+    if (this.patientId) {
+      this.router.navigate(['/tabs/tab2'], { 
+        queryParams: { editPatientId: this.patientId } 
+      });
+    }
+  }
+
   verMedicamentos() {
     if (this.patientId) {
       this.router.navigate(['/tabs/tab4'], { 
@@ -267,35 +284,60 @@ export class Tab3Page implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Open modal to create a new consultation
+   */
   async nuevaConsulta() {
-    if (!this.patientId || !this.fichaId) {
-      console.error('No se puede crear consulta sin paciente o ficha');
+    if (!this.paciente || !this.fichaId) {
+      await this.showToast('Error: No se pudo cargar la información del paciente', 'danger');
       return;
     }
 
-    // TODO: Implementar modal para nueva consulta con formulario completo
-    // Por ahora crear una consulta básica
-    try {
-      const consultaData = {
-        idPaciente: this.patientId,
-        idFichaMedica: this.fichaId,
-        fecha: Timestamp.now(),
-        motivo: 'Consulta general', // TODO: Get from form
-        tratamiento: '',
-        observaciones: '',
-        idProfesional: 'medico-general', // TODO: Get from auth
-        notas: [],
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
+    const modal = await this.modalCtrl.create({
+      component: NuevaConsultaModalComponent,
+      componentProps: {
+        pacienteId: this.paciente.id,
+        fichaMedicaId: this.fichaId,
+        pacienteNombre: `${this.paciente.nombre} ${this.paciente.apellido}`
+      }
+    });
 
-      await this.consultasService.createConsulta(consultaData);
-      console.log('Nueva consulta creada exitosamente');
-      this.refreshData(); // Reload data to show new consultation
-    } catch (error) {
-      console.error('Error creando consulta:', error);
-      this.error = 'Error al crear la consulta';
+    modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'confirm' && data) {
+      await this.guardarConsulta(data);
     }
+  }
+
+  /**
+   * Save consultation to Firestore
+   */
+  private async guardarConsulta(consultaData: any) {
+    try {
+      const consultaId = await this.consultasService.createConsulta(consultaData);
+      await this.showToast('Consulta guardada exitosamente', 'success');
+      
+      // Reload the medical record to show the new consultation
+      this.refreshData();
+    } catch (error) {
+      console.error('Error saving consultation:', error);
+      await this.showToast('Error al guardar la consulta', 'danger');
+    }
+  }
+
+  /**
+   * Show toast notification
+   */
+  private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    const toast = await this.toastCtrl.create({
+      message,
+      duration: 3000,
+      position: 'top',
+      color
+    });
+    await toast.present();
   }
 
   // ============== UTILIDADES UI ==============

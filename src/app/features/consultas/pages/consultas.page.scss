@@ -134,6 +134,42 @@ ion-card {
   width: 100%;
   padding: 0;
   margin: 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nueva-consulta-btn {
+  --background: linear-gradient(135deg, var(--c-primary-500), var(--c-primary-600)) !important;
+  --color: #fff !important;
+  --border-radius: 12px;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --padding-start: 32px;
+  --padding-end: 32px;
+  --box-shadow: 0 6px 16px rgba(31, 136, 255, .13);
+  font-weight: 600;
+  text-transform: none;
+  transition: transform .12s, box-shadow .12s, filter .12s;
+  min-width: 180px;
+}
+
+.nueva-consulta-btn:hover {
+  --background: linear-gradient(135deg, var(--c-primary-500), var(--c-primary-600)) !important;
+  transform: translateY(-1px);
+  --box-shadow: 0 10px 24px rgba(31, 136, 255, .18);
+  filter: saturate(1.08);
+}
+
+.nueva-consulta-btn:active {
+  transform: translateY(0);
+  --box-shadow: 0 4px 10px rgba(31, 136, 255, .13);
 }
 
 .header-title {
@@ -232,6 +268,8 @@ ion-card.panel ion-card-content {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  justify-content: space-between;
 }
 .section-header ion-icon {
   font-size: 1.5rem;
@@ -248,6 +286,14 @@ ion-card.panel ion-card-content {
 }
 .section-header .notas-icon {
   color: var(--c-primary-200);
+}
+.section-header .edit-btn {
+  --border-color: var(--c-primary-400);
+  --color: var(--c-primary-600);
+  --background-hover: var(--c-primary-50);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: none;
 }
 
 /* INFO Y GRIDS */

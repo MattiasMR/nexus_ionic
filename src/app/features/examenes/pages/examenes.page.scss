@@ -8,6 +8,16 @@
   box-shadow: 0 4px 16px rgba(31, 136, 255, 0.10);
 }
 
+// Header row with title and action button
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 /* ========= PALETA AZUL + BLANCO (igual que tab1) ========= */
 :host {
   --c-bg: #f7fbff;

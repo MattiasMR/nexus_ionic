@@ -12,7 +12,7 @@ import {
   DashboardStats, 
   AlertaDashboard, 
   AccionRapida 
-} from '../features/dashboard/data/dashboard.service';
+} from '../data/dashboard.service';
 import { Subscription } from 'rxjs';
 
 /**
@@ -27,7 +27,7 @@ interface StatCard {
 }
 
 @Component({
-  selector: 'app-tab1',
+  selector: 'app-dashboard',
   standalone: true,
   imports: [
     IonContent, IonGrid, IonRow, IonCol,
@@ -35,10 +35,10 @@ interface StatCard {
     IonIcon, IonAvatar, IonSpinner, IonToast,
     NgFor, NgClass, NgIf, DatePipe, UpperCasePipe
   ],
-  templateUrl: './tab1.page.html',
-  styleUrls: ['./tab1.page.scss']
+  templateUrl: './dashboard.page.html',
+  styleUrls: ['./dashboard.page.scss']
 })
-export class Tab1Page implements OnInit, OnDestroy {
+export class DashboardPage implements OnInit, OnDestroy {
   // Component state
   stats: StatCard[] = [];
   alertas: AlertaDashboard[] = [];

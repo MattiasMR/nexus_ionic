@@ -6,7 +6,7 @@ import {
   IonHeader, IonToolbar, IonTitle, IonContent, IonBadge, IonButton, 
   IonIcon, IonGrid, IonRow, IonCol, IonItem, IonLabel, IonModal, 
   IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
-  IonSpinner, IonToast
+  IonSpinner, IonToast, ModalController, ToastController, AlertController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { add, create, ban, calendar, time, medical, person, warning, checkmarkCircle } from 'ionicons/icons';
@@ -14,12 +14,15 @@ import { Subscription } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 
 // Servicios Firestore
-import { MedicamentosService } from '../features/medicamentos/data/medicamentos.service';
-import { PacientesService } from '../features/pacientes/data/pacientes.service';
+import { MedicamentosService } from '../data/medicamentos.service';
+import { PacientesService } from '../../pacientes/data/pacientes.service';
+
+// Components
+import { EditarMedicamentoModalComponent } from '../components/editar-medicamento-modal/editar-medicamento-modal.component';
 
 // Modelos
-import { Receta, MedicamentoRecetado } from '../models/receta.model';
-import { Medicamento } from '../models/medicamento.model';
+import { Receta, MedicamentoRecetado } from '../../../models/receta.model';
+import { Medicamento } from '../../../models/medicamento.model';
 
 /**
  * UI interface for medication display with compatibility fields
@@ -41,9 +44,9 @@ interface RecetaUI extends Receta {
 }
 
 @Component({
-  selector: 'app-tab4',
-  templateUrl: 'tab4.page.html',
-  styleUrls: ['tab4.page.scss'],
+  selector: 'app-medicamentos',
+  templateUrl: './medicamentos.page.html',
+  styleUrls: ['./medicamentos.page.scss'],
   standalone: true,
   imports: [
     IonHeader, IonToolbar, IonTitle, IonContent, IonBadge, IonButton, 
@@ -52,7 +55,7 @@ interface RecetaUI extends Receta {
     CommonModule, FormsModule
   ]
 })
-export class Tab4Page implements OnInit, OnDestroy {
+export class MedicamentosPage implements OnInit, OnDestroy {
   
   // Estados del componente
   medicamentosActuales: RecetaUI[] = [];
@@ -98,7 +101,10 @@ export class Tab4Page implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private medicamentosService: MedicamentosService,
-    private pacientesService: PacientesService
+    private pacientesService: PacientesService,
+    private modalCtrl: ModalController,
+    private toastCtrl: ToastController,
+    private alertCtrl: AlertController
   ) {
     addIcons({ add, create, ban, calendar, time, medical, person, warning, checkmarkCircle });
   }
@@ -298,18 +304,135 @@ export class Tab4Page implements OnInit, OnDestroy {
   }
 
   // ============== GESTIÓN DE MEDICAMENTOS ==============
+  
   /**
-   * Note: Our Receta model doesn't have status field yet
-   * These methods are kept for template compatibility but will need model extension
+   * Open modal to modify medication prescription
    */
-  async suspenderMedicamento(receta: RecetaUI) {
-    console.log('Suspender medicamento feature not implemented - requires Receta model extension');
-    // TODO: Add 'estado' field to Receta model and implement updateRecetaEstado() in service
+  async modificarMedicamento(receta: RecetaUI) {
+    if (!receta.id) return;
+
+    const modal = await this.modalCtrl.create({
+      component: EditarMedicamentoModalComponent,
+      componentProps: {
+        receta: receta
+      }
+    });
+
+    modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'confirm' && data) {
+      await this.actualizarReceta(receta.id, data);
+    }
   }
 
+  /**
+   * Update prescription in Firestore
+   */
+  private async actualizarReceta(recetaId: string, updatedData: Partial<Receta>) {
+    try {
+      await this.medicamentosService.updateReceta(recetaId, updatedData);
+      await this.showToast('Medicamento actualizado exitosamente', 'success');
+      
+      // Reload medications
+      if (this.patientId) {
+        this.loadMedications(this.patientId);
+      }
+    } catch (error) {
+      console.error('Error updating prescription:', error);
+      await this.showToast('Error al actualizar el medicamento', 'danger');
+    }
+  }
+
+  /**
+   * Suspend medication (mark in observaciones since model doesn't have estado field)
+   * Shows confirmation dialog before suspending
+   */
+  async suspenderMedicamento(receta: RecetaUI) {
+    if (!receta.id) return;
+
+    // Check if already suspended
+    if (receta.observaciones?.includes('[SUSPENDIDO]')) {
+      await this.showToast('Este medicamento ya está suspendido', 'warning');
+      return;
+    }
+
+    const alert = await this.alertCtrl.create({
+      header: 'Suspender Medicamento',
+      message: `¿Está seguro de que desea suspender "${receta.nombre || receta.medicamentos?.[0]?.nombreMedicamento}"?`,
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel'
+        },
+        {
+          text: 'Suspender',
+          role: 'confirm',
+          handler: async () => {
+            await this.marcarComoSuspendido(receta.id!);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Mark medication as suspended by updating observaciones
+   */
+  private async marcarComoSuspendido(recetaId: string) {
+    try {
+      const receta = this.medicamentosActuales.find(r => r.id === recetaId);
+      if (!receta) return;
+
+      const observaciones = receta.observaciones || '';
+      const nuevasObservaciones = `[SUSPENDIDO - ${new Date().toLocaleDateString()}] ${observaciones}`.trim();
+
+      await this.medicamentosService.updateReceta(recetaId, {
+        observaciones: nuevasObservaciones
+      });
+
+      await this.showToast('Medicamento suspendido', 'success');
+      
+      // Reload medications
+      if (this.patientId) {
+        this.loadMedications(this.patientId);
+      }
+    } catch (error) {
+      console.error('Error suspending medication:', error);
+      await this.showToast('Error al suspender el medicamento', 'danger');
+    }
+  }
+
+  /**
+   * Reactivate suspended medication
+   */
   async reactivarMedicamento(receta: RecetaUI) {
-    console.log('Reactivar medicamento feature not implemented - requires Receta model extension');
-    // TODO: Add 'estado' field to Receta model
+    if (!receta.id) return;
+
+    try {
+      // Remove [SUSPENDIDO] tag from observaciones
+      const observaciones = receta.observaciones || '';
+      const nuevasObservaciones = observaciones
+        .replace(/\[SUSPENDIDO - \d{1,2}\/\d{1,2}\/\d{4}\]/g, '')
+        .trim();
+
+      await this.medicamentosService.updateReceta(receta.id, {
+        observaciones: nuevasObservaciones || undefined
+      });
+
+      await this.showToast('Medicamento reactivado', 'success');
+      
+      // Reload medications
+      if (this.patientId) {
+        this.loadMedications(this.patientId);
+      }
+    } catch (error) {
+      console.error('Error reactivating medication:', error);
+      await this.showToast('Error al reactivar el medicamento', 'danger');
+    }
   }
 
   async completarMedicamento(receta: RecetaUI) {
@@ -320,21 +443,45 @@ export class Tab4Page implements OnInit, OnDestroy {
   async eliminarMedicamento(receta: RecetaUI) {
     if (!receta.id) return;
     
-    if (confirm('¿Está seguro de que desea eliminar esta receta?')) {
-      try {
-        await this.medicamentosService.deleteReceta(receta.id);
-        this.medicamentosActuales = this.medicamentosActuales.filter(m => m.id !== receta.id);
-        console.log('Receta deleted successfully');
-      } catch (error) {
-        console.error('Error deleting prescription:', error);
-        this.error = 'Error al eliminar la receta';
-      }
-    }
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar Medicamento',
+      message: '¿Está seguro de que desea eliminar esta receta? Esta acción no se puede deshacer.',
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel'
+        },
+        {
+          text: 'Eliminar',
+          role: 'confirm',
+          handler: async () => {
+            try {
+              await this.medicamentosService.deleteReceta(receta.id!);
+              this.medicamentosActuales = this.medicamentosActuales.filter(m => m.id !== receta.id);
+              await this.showToast('Receta eliminada exitosamente', 'success');
+            } catch (error) {
+              console.error('Error deleting prescription:', error);
+              await this.showToast('Error al eliminar la receta', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
-  modificarMedicamento(receta: RecetaUI) {
-    console.log('Modificar medicamento:', receta);
-    // TODO: Implement edit modal
+  /**
+   * Show toast notification
+   */
+  private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    const toast = await this.toastCtrl.create({
+      message,
+      duration: 3000,
+      position: 'top',
+      color
+    });
+    await toast.present();
   }
 
   // ============== INDICACIONES MÉDICAS ==============
