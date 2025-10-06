@@ -16,6 +16,7 @@ import {
   getDocs,
 } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { Consulta, NotaRapida } from '../../../models/consulta.model';
 import { FichasMedicasService } from '../../fichas-medicas/data/fichas-medicas.service';
 
@@ -42,7 +43,9 @@ export class ConsultasService {
       where('idPaciente', '==', pacienteId),
       orderBy('fecha', 'desc')
     );
-    return collectionData(q, { idField: 'id' }) as Observable<Consulta[]>;
+    return (collectionData(q, { idField: 'id' }) as Observable<Consulta[]>).pipe(
+      take(1) // ✅ Complete after first emission for forkJoin
+    );
   }
 
   /**

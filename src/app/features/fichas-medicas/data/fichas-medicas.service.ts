@@ -16,6 +16,7 @@ import {
   getDocs,
 } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
+import { map, take } from 'rxjs/operators';
 import { FichaMedica } from '../../../models/ficha-medica.model';
 
 /**
@@ -32,20 +33,20 @@ export class FichasMedicasService {
   /**
    * Get medical record by patient ID
    * Each patient should have one ficha médica
+   * Returns Observable that emits once and completes (for forkJoin compatibility)
    */
-  getFichaByPacienteId(pacienteId: string): Observable<FichaMedica | undefined> {
+  getFichaByPacienteId(pacienteId: string): Observable<FichaMedica | null> {
     const ref = collection(this.firestore, this.collectionName);
     const q = query(ref, where('idPaciente', '==', pacienteId), limit(1));
     
-    return new Observable(observer => {
-      collectionData(q, { idField: 'id' }).subscribe({
-        next: (fichas: any[]) => {
-          observer.next(fichas.length > 0 ? fichas[0] as FichaMedica : undefined);
-        },
-        error: (err) => observer.error(err),
-        complete: () => observer.complete()
-      });
-    });
+    // Use take(1) to emit once and complete (required for forkJoin)
+    return collectionData(q, { idField: 'id' }).pipe(
+      take(1), // ✅ CRITICAL: Complete after first emission
+      map((fichas: any[]) => {
+        const ficha = fichas.length > 0 ? (fichas[0] as FichaMedica) : null;
+        return ficha;
+      })
+    );
   }
 
   /**

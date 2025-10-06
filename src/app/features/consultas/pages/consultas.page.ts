@@ -5,6 +5,7 @@ import {
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonBadge, IonGrid, IonRow, IonCol, IonList, IonItem, IonLabel,
   IonTextarea, IonTabs, IonTabButton, IonSpinner, IonToast,
+  IonInput, IonSelect, IonSelectOption,
   ModalController, ToastController
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
@@ -26,6 +27,9 @@ import { Paciente } from '../../../models/paciente.model';
 import { FichaMedica } from '../../../models/ficha-medica.model';
 import { Consulta } from '../../../models/consulta.model';
 import { OrdenExamen } from '../../../models/orden-examen.model';
+
+// Utilidades
+import { AvatarUtils } from '../../../shared/utils/avatar.utils';
 
 /**
  * UI interface for medical record display
@@ -88,7 +92,8 @@ interface OrdenExamenUI extends OrdenExamen {
     IonContent, IonIcon, IonButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
     IonBadge, IonGrid, IonRow, IonCol,
-    IonTextarea, CommonModule, FormsModule
+    IonTextarea, IonInput, IonSelect, IonSelectOption,
+    CommonModule, FormsModule
   ],
 })
 export class ConsultasPage implements OnInit, OnDestroy {
@@ -103,6 +108,10 @@ export class ConsultasPage implements OnInit, OnDestroy {
   
   // Variable para las notas rápidas
   nuevaNota: string = '';
+  
+  // Edit mode
+  isEditMode = false;
+  editedData: any = {};
   
   private subscriptions: Subscription[] = [];
 
@@ -166,12 +175,13 @@ export class ConsultasPage implements OnInit, OnDestroy {
               data.examenes
             );
           } else {
+            console.error('Missing patient or ficha data');
             this.error = 'No se encontró el paciente o su ficha médica';
           }
           this.isLoading = false;
         },
         error: (error) => {
-          console.error('Error loading patient data:', error);
+          console.error('❌ Error loading patient data:', error);
           this.error = 'Error al cargar los datos del paciente: ' + (error.message || 'Desconocido');
           this.isLoading = false;
         }
@@ -188,17 +198,19 @@ export class ConsultasPage implements OnInit, OnDestroy {
     consultas: Consulta[],
     examenes: OrdenExamen[]
   ): FichaMedicaUI {
+    const datosPersonales = {
+      nombres: paciente.nombre || 'Sin nombre',
+      apellidos: paciente.apellido || 'Sin apellido',
+      rut: paciente.rut || 'Sin RUT',
+      edad: this.calculateAge(paciente.fechaNacimiento),
+      grupoSanguineo: paciente.grupoSanguineo || 'No registrado',
+      direccion: paciente.direccion || 'Sin dirección',
+      telefono: paciente.telefono || 'Sin teléfono',
+      contactoEmergencia: 'Contacto por definir' // TODO: Add to Paciente model
+    };
+    
     return {
-      datosPersonales: {
-        nombres: paciente.nombre,
-        apellidos: paciente.apellido,
-        rut: paciente.rut,
-        edad: this.calculateAge(paciente.fechaNacimiento),
-        grupoSanguineo: paciente.grupoSanguineo || 'No registrado',
-        direccion: paciente.direccion,
-        telefono: paciente.telefono,
-        contactoEmergencia: 'Contacto por definir' // TODO: Add to Paciente model
-      },
+      datosPersonales,
       alertasMedicas: [
         // Alergias del paciente
         ...(paciente.alergias || []).map(alergia => ({
@@ -258,13 +270,73 @@ export class ConsultasPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Navigate to patient edit page
+   * Toggle edit mode for datos personales
    */
   editarDatosPersonales() {
-    if (this.patientId) {
-      this.router.navigate(['/tabs/tab2'], { 
-        queryParams: { editPatientId: this.patientId } 
+    this.isEditMode = true;
+    // Copy current data to editedData for editing
+    if (this.ficha?.datosPersonales) {
+      this.editedData = {
+        telefono: this.ficha.datosPersonales.telefono,
+        direccion: this.ficha.datosPersonales.direccion,
+        grupoSanguineo: this.ficha.datosPersonales.grupoSanguineo
+      };
+    }
+  }
+  
+  /**
+   * Cancel editing and restore original data
+   */
+  cancelarEdicion() {
+    this.isEditMode = false;
+    this.editedData = {};
+  }
+  
+  /**
+   * Save edited patient data to Firestore
+   */
+  async guardarCambios() {
+    if (!this.patientId) return;
+    
+    this.isLoading = true;
+    
+    try {
+      // Update only the fields that can be edited
+      const updateData: any = {};
+      if (this.editedData.telefono) updateData.telefono = this.editedData.telefono;
+      if (this.editedData.direccion) updateData.direccion = this.editedData.direccion;
+      if (this.editedData.grupoSanguineo) updateData.grupoSanguineo = this.editedData.grupoSanguineo;
+      
+      await this.pacientesService.updatePaciente(this.patientId, updateData);
+      
+      // Reload patient data to reflect changes
+      this.loadPatientData(this.patientId);
+      
+      this.isEditMode = false;
+      this.editedData = {};
+      
+      // Show success toast
+      const toast = await this.toastCtrl.create({
+        message: 'Cambios guardados correctamente',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom'
       });
+      await toast.present();
+    } catch (error: any) {
+      console.error('❌ Error saving changes:', error);
+      this.error = 'Error al guardar los cambios: ' + (error.message || 'Desconocido');
+      
+      // Show error toast
+      const toast = await this.toastCtrl.create({
+        message: 'Error al guardar los cambios',
+        duration: 3000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -461,7 +533,6 @@ export class ConsultasPage implements OnInit, OnDestroy {
           texto: this.nuevaNota.trim(),
           autor: 'medico-general' // TODO: Get from auth
         });
-        console.log('Nota rápida guardada');
         this.nuevaNota = '';
         this.refreshData();
       } else {

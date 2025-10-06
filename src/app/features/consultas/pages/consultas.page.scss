@@ -296,6 +296,36 @@ ion-card.panel ion-card-content {
   text-transform: none;
 }
 
+/* EDIT MODE ACTIONS */
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+.edit-actions ion-button {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+/* EDIT INPUT FIELDS */
+.edit-input {
+  --background: var(--ion-color-light);
+  --padding-start: 12px;
+  --padding-end: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  margin-top: 4px;
+  font-size: 0.95rem;
+}
+
+ion-select {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
 /* INFO Y GRIDS */
 .info-group {
   margin-bottom: 10px;

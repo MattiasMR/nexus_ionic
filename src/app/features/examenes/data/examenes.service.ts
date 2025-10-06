@@ -16,6 +16,7 @@ import {
   getDocs,
 } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { Examen, OrdenExamen } from '../../../models';
 
 /**
@@ -249,7 +250,9 @@ export class ExamenesService {
       where('idPaciente', '==', pacienteId),
       orderBy('fechaOrden', 'desc')
     );
-    return collectionData(q, { idField: 'id' }) as Observable<OrdenExamen[]>;
+    return (collectionData(q, { idField: 'id' }) as Observable<OrdenExamen[]>).pipe(
+      take(1) // ✅ Complete after first emission for forkJoin
+    );
   }
 
   /**

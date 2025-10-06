@@ -17,6 +17,7 @@ import { FichasMedicasService } from '../../fichas-medicas/data/fichas-medicas.s
 import { Paciente } from '../../../models/paciente.model';
 import { Subscription } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
+import { AvatarUtils } from '../../../shared/utils/avatar.utils';
 
 /**
  * UI-friendly patient display interface with calculated fields
@@ -108,7 +109,6 @@ export class PatientListPage implements OnInit, OnDestroy {
           this.filteredPacientes = [...this.pacientes];
           this.totalPatients = this.pacientes.length;
           this.isLoading = false;
-          console.log('Patients loaded:', pacientes.length);
         },
         error: (error) => {
           console.error('Error loading patients:', error);
@@ -230,12 +230,28 @@ export class PatientListPage implements OnInit, OnDestroy {
   }
 
   // ---------- Utilidades UI ----------
+  
+  /**
+   * Get initials for avatar
+   */
   initials(nombre?: string): string {
     if (!nombre) return '--';
     const parts = nombre.trim().split(/\s+/);
-    const first = parts[0]?.[0] ?? '';
-    const last  = parts[parts.length - 1]?.[0] ?? '';
-    return (first + last).toUpperCase();
+    return AvatarUtils.getInitials(parts[0], parts[parts.length - 1]);
+  }
+  
+  /**
+   * Get avatar background color (consistent per patient)
+   */
+  getAvatarStyle(nombre?: string, apellido?: string): any {
+    return AvatarUtils.getAvatarStyle(nombre || '', apellido);
+  }
+  
+  /**
+   * Get avatar color as string
+   */
+  getAvatarColor(nombre?: string, apellido?: string): string {
+    return AvatarUtils.getAvatarColor(`${nombre || ''} ${apellido || ''}`);
   }
 
   estadoClass(estado: 'activo' | 'inactivo' | undefined) {
@@ -253,26 +269,23 @@ export class PatientListPage implements OnInit, OnDestroy {
   editingPacienteId: string | null = null; // ID of patient being edited
 
   openCreate() {
-    console.log('openCreate() llamado');
     this.isEditMode = false;
     this.editingPacienteId = null;
     this.newPaciente = this.blankPaciente();
     this.error = null;
     this.isCreateOpen = true;
-    console.log('Modal abierto, newPaciente inicializado:', this.newPaciente);
   }
 
   /**
    * Open modal in edit mode with existing patient data
    */
   openEdit(paciente: PacienteUI) {
-    console.log('openEdit() llamado con paciente:', paciente);
     this.isEditMode = true;
     this.editingPacienteId = paciente.id || null;
     
-    // Pre-fill form with existing patient data
-    // Map model fields to template fields
+    // Pre-fill form with existing patient data - MAP ALL FIELDS
     this.newPaciente = {
+      // Basic fields
       nombres: paciente.nombre,
       apellidos: paciente.apellido,
       rut: paciente.rut,
@@ -281,6 +294,14 @@ export class PatientListPage implements OnInit, OnDestroy {
       fechaNacimiento: paciente.fechaNacimiento,
       grupoSanguineo: paciente.grupoSanguineo,
       email: (paciente as any).email || '',
+      // Additional fields that were missing
+      genero: paciente.sexo || 'Otro',
+      sexo: paciente.sexo || 'Otro', // Map both for compatibility
+      estadoCivil: (paciente as any).estadoCivil || 'soltero',
+      ocupacion: (paciente as any).ocupacion || '',
+      estado: (paciente as any).estado || 'activo',
+      diagnostico: (paciente as any).diagnostico || '',
+      // Arrays
       alergias: paciente.alergias?.join(', ') || '',
       enfermedadesCronicas: paciente.enfermedadesCronicas?.join(', ') || '',
       contactoEmergencia: (paciente as any).contactoEmergencia || ''
@@ -288,12 +309,10 @@ export class PatientListPage implements OnInit, OnDestroy {
     
     this.error = null;
     this.isCreateOpen = true;
-    console.log('Modal abierto en modo edición:', this.newPaciente);
   }
   
-  closeCreate() { 
-    console.log('closeCreate() llamado');
-    this.isCreateOpen = false; 
+  closeCreate() {
+    this.isCreateOpen = false;
     this.error = null;
   }
 
@@ -370,9 +389,6 @@ export class PatientListPage implements OnInit, OnDestroy {
   }
 
   async saveCreate() {
-    console.log('saveCreate() llamado, isEditMode:', this.isEditMode);
-    console.log('Datos del formulario:', this.newPaciente);
-    
     const p = this.newPaciente;
     
     // Map template fields (plural) to model fields (singular)
@@ -423,8 +439,6 @@ export class PatientListPage implements OnInit, OnDestroy {
     // Limpiar error previo
     this.error = null;
     this.isLoading = true;
-    
-    console.log('Validaciones pasadas...');
 
     // Preparar datos para Firestore
     const pacienteData: Partial<Paciente> = {
@@ -441,9 +455,11 @@ export class PatientListPage implements OnInit, OnDestroy {
       updatedAt: Timestamp.now()
     };
 
-    // Add extended fields
+    // Add extended fields (ALWAYS include these, even in edit mode)
     (pacienteData as any).estado = p.estado || 'activo';
     (pacienteData as any).diagnostico = p.diagnostico?.trim() || 'Sin diagnóstico registrado';
+    (pacienteData as any).estadoCivil = p.estadoCivil || 'soltero';
+    (pacienteData as any).ocupacion = p.ocupacion?.trim() || '';
 
     // Only add optional fields if they have values
     if (p.email?.trim()) {
@@ -461,22 +477,17 @@ export class PatientListPage implements OnInit, OnDestroy {
       pacienteData.createdAt = Timestamp.now();
     }
 
-    console.log('Datos preparados:', pacienteData);
-
     try {
       if (this.isEditMode && this.editingPacienteId) {
         // UPDATE existing patient
         await this.pacientesService.updatePaciente(this.editingPacienteId, pacienteData);
-        console.log('Paciente actualizado con éxito, ID:', this.editingPacienteId);
         this.lastCreatedPatientId = null; // Clear temp sort
       } else {
         // CREATE new patient
         const docId = await this.pacientesService.createPaciente(pacienteData as Omit<Paciente, 'id'>);
-        console.log('Paciente creado con éxito, ID:', docId);
         this.lastCreatedPatientId = docId; // Store for temp sorting
         
         // Auto-create ficha medica with patient data
-        console.log('📄 Creando ficha médica para paciente:', docId);
         await this.fichasMedicasService.createFicha({
           idPaciente: docId,
           fechaMedica: Timestamp.now(),
@@ -490,14 +501,11 @@ export class PatientListPage implements OnInit, OnDestroy {
           },
           totalConsultas: 0
         });
-        console.log('✅ Ficha médica creada exitosamente');
       }
 
       this.loadPatients(); // Reload patient list
       this.closeCreate();
       this.isLoading = false;
-      
-      console.log('Operación exitosa y lista actualizada');
     } catch (error: any) {
       console.error('Error al guardar paciente:', error);
       this.error = error?.message || 'Error al guardar el paciente';

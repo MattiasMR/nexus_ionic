@@ -52,15 +52,46 @@
       </button>
     </div>
 
+    <!-- Empty State: No patients -->
+    <div class="empty-state" *ngIf="!isLoading && filtered.length === 0 && !query">
+      <div class="empty-icon">
+        <ion-icon name="people-outline"></ion-icon>
+      </div>
+      <h3>No hay pacientes registrados</h3>
+      <p>Comienza agregando tu primer paciente al sistema</p>
+      <button class="primary" (click)="openCreate()">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>Agregar Paciente</span>
+      </button>
+    </div>
+
+    <!-- Empty State: No search results -->
+    <div class="empty-state" *ngIf="!isLoading && filtered.length === 0 && query">
+      <div class="empty-icon">
+        <ion-icon name="search-outline"></ion-icon>
+      </div>
+      <h3>Sin resultados</h3>
+      <p>No se encontraron pacientes con "{{ query }}"</p>
+      <button class="ghost" (click)="query = ''; onSearch({detail: {value: ''}})">
+        <ion-icon name="close-circle-outline"></ion-icon>
+        <span>Limpiar búsqueda</span>
+      </button>
+    </div>
+
     <!-- Listado -->
-    <ion-list class="patients-list">
+    <ion-list class="patients-list" *ngIf="filtered.length > 0">
       <ion-item class="patient-card" lines="none" *ngFor="let p of filtered">
         <div class="card-inner">
 
           <div class="head">
             <div class="head-left">
-              <div class="avatar">{{ initials(p.nombres) }}</div>
-              <h3 class="name">{{ p.nombres }}</h3>
+              <div class="avatar" [style.background-color]="getAvatarColor(p.nombres, p.apellidos)">
+                {{ initials(p.nombres + ' ' + p.apellidos) }}
+              </div>
+              <div class="name-block">
+                <h3 class="name">{{ p.nombres }} {{ p.apellidos }}</h3>
+                <span class="rut-mini">{{ p.rut }}</span>
+              </div>
             </div>
             <ion-badge [ngClass]="estadoClass(p.estado)" class="state-badge">
               <span class="dot"></span> {{ p.estado }}

@@ -34,10 +34,22 @@
         <div class="section-header">
           <ion-icon name="person" class="section-icon"></ion-icon>
           <ion-card-title>Datos Personales</ion-card-title>
-          <ion-button (click)="editarDatosPersonales()" fill="outline" size="small" class="edit-btn">
-            <ion-icon name="create-outline" slot="start"></ion-icon>
-            Editar
-          </ion-button>
+          <div *ngIf="!isEditMode">
+            <ion-button (click)="editarDatosPersonales()" fill="outline" size="small" class="edit-btn">
+              <ion-icon name="create-outline" slot="start"></ion-icon>
+              Editar
+            </ion-button>
+          </div>
+          <div *ngIf="isEditMode" class="edit-actions">
+            <ion-button (click)="guardarCambios()" fill="solid" size="small" color="success">
+              <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+              Guardar
+            </ion-button>
+            <ion-button (click)="cancelarEdicion()" fill="outline" size="small" color="medium">
+              <ion-icon name="close-outline" slot="start"></ion-icon>
+              Cancelar
+            </ion-button>
+          </div>
         </div>
       </ion-card-header>
       
@@ -56,7 +68,17 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Tipo sanguíneo:</span>
-                  <span class="info-value blood-type">{{ ficha?.datosPersonales?.grupoSanguineo }}</span>
+                  <span class="info-value blood-type" *ngIf="!isEditMode">{{ ficha?.datosPersonales?.grupoSanguineo }}</span>
+                  <ion-select *ngIf="isEditMode" [(ngModel)]="editedData.grupoSanguineo" interface="popover">
+                    <ion-select-option value="A+">A+</ion-select-option>
+                    <ion-select-option value="A-">A-</ion-select-option>
+                    <ion-select-option value="B+">B+</ion-select-option>
+                    <ion-select-option value="B-">B-</ion-select-option>
+                    <ion-select-option value="AB+">AB+</ion-select-option>
+                    <ion-select-option value="AB-">AB-</ion-select-option>
+                    <ion-select-option value="O+">O+</ion-select-option>
+                    <ion-select-option value="O-">O-</ion-select-option>
+                  </ion-select>
                 </div>
               </div>
             </ion-col>
@@ -64,11 +86,13 @@
               <div class="info-group">
                 <div class="info-item">
                   <span class="info-label">Dirección:</span>
-                  <span class="info-value">{{ ficha?.datosPersonales?.direccion }}</span>
+                  <span class="info-value" *ngIf="!isEditMode">{{ ficha?.datosPersonales?.direccion }}</span>
+                  <ion-input *ngIf="isEditMode" [(ngModel)]="editedData.direccion" type="text" class="edit-input"></ion-input>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Contacto:</span>
-                  <span class="info-value">{{ ficha?.datosPersonales?.telefono }}</span>
+                  <span class="info-value" *ngIf="!isEditMode">{{ ficha?.datosPersonales?.telefono }}</span>
+                  <ion-input *ngIf="isEditMode" [(ngModel)]="editedData.telefono" type="tel" maxlength="9" class="edit-input"></ion-input>
                 </div>
               </div>
             </ion-col>

@@ -76,6 +76,74 @@
 .filter-chip ion-icon { font-size: 18px; color: #2a5ea8; }
 .filter-chip:hover { background: #f6fbff; box-shadow: var(--elev-1); }
 
+/* ---------- Empty State ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  background: var(--c-surface);
+  border: 2px dashed var(--c-border);
+  border-radius: 16px;
+  margin: 20px 0;
+}
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eaf3ff, #d4e9ff);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+}
+.empty-icon ion-icon {
+  font-size: 40px;
+  color: #176fdb;
+}
+.empty-state h3 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--c-text);
+}
+.empty-state p {
+  margin: 0 0 24px 0;
+  font-size: 15px;
+  color: var(--c-muted);
+  max-width: 400px;
+}
+.empty-state button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all .12s ease;
+  border: none;
+}
+.empty-state button.primary {
+  background: linear-gradient(135deg, var(--c-primary-300), var(--c-primary-600));
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(31,136,255,.18);
+}
+.empty-state button.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(31,136,255,.25);
+}
+.empty-state button.ghost {
+  background: #fff;
+  border: 2px solid var(--c-border);
+  color: var(--c-primary-600);
+}
+.empty-state button.ghost:hover {
+  background: var(--c-surface-soft);
+  border-color: var(--c-primary-300);
+}
+
 /* ---------- Cards ---------- */
 .patients-list { padding: 0; background: transparent; }
 .patient-card { --background: transparent; padding: 0; margin-bottom: 14px; }
@@ -84,8 +152,39 @@
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .head-left { display: inline-flex; align-items: center; gap: 12px; }
-.avatar { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: #eaf3ff; color: #176fdb; font-weight: 900; border: 1px solid #dbe9ff; }
-.name { margin: 0; font-size: 18px; font-weight: 900; color: var(--c-text); }
+.avatar { 
+  width: 48px; 
+  height: 48px; 
+  border-radius: 12px; 
+  display: grid; 
+  place-items: center; 
+  font-weight: 900; 
+  font-size: 16px;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+.avatar:hover {
+  transform: scale(1.05);
+}
+.name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.name { 
+  margin: 0; 
+  font-size: 18px; 
+  font-weight: 900; 
+  color: var(--c-text); 
+  line-height: 1.2;
+}
+.rut-mini {
+  font-size: 12px;
+  color: var(--c-muted);
+  font-weight: 600;
+}
 
 .state-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-weight: 800; }
 .state-badge .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: currentColor; }
